@@ -1,0 +1,5 @@
+spring:
+  config:
+    import: optional:configserver:http://sv2-config-server:9999
+  application:
+    name: evaluacion-desempeno

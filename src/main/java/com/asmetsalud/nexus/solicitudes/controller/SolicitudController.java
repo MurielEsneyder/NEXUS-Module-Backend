@@ -1,0 +1,221 @@
+package com.asmetsalud.nexus.solicitudes.controller;
+
+// ============================================================
+// IMPORTS DE SPRING Y LOMBOK
+// ============================================================
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+// ============================================================
+// IMPORTS DEL PROYECTO - DTOs
+// ============================================================
+import com.asmetsalud.nexus.solicitudes.dto.EstadoSolicitudDTO;
+import com.asmetsalud.nexus.solicitudes.dto.SolicitudRequestDTO;
+import com.asmetsalud.nexus.solicitudes.dto.SolicitudResponseDTO;
+import com.asmetsalud.nexus.solicitudes.dto.TipoSolicitudDTO;
+
+// ============================================================
+// IMPORTS DEL PROYECTO - ENTITIES
+// ============================================================
+import com.asmetsalud.nexus.solicitudes.entity.EstadoSolicitud;
+import com.asmetsalud.nexus.solicitudes.entity.TipoSolicitud;
+
+// ============================================================
+// IMPORTS DEL PROYECTO - REPOSITORIES
+// ============================================================
+import com.asmetsalud.nexus.solicitudes.repository.EstadoSolicitudRepository;
+import com.asmetsalud.nexus.solicitudes.repository.TipoSolicitudRepository;
+
+// ============================================================
+// IMPORTS DEL PROYECTO - SERVICE
+// ============================================================
+import com.asmetsalud.nexus.solicitudes.service.SolicitudService;
+
+// ============================================================
+// IMPORTS DE JAVA
+// ============================================================
+import java.util.List;
+import java.util.stream.Collectors;
+
+@RestController
+@RequestMapping("/solicitudes")
+@RequiredArgsConstructor
+@Slf4j
+@CrossOrigin(origins = "*")
+public class  SolicitudController {
+
+    private final SolicitudService solicitudService;
+    private final EstadoSolicitudRepository estadoSolicitudRepository;
+    private final TipoSolicitudRepository tipoSolicitudRepository;
+
+    // ============================================================
+    // CREATE - Crear una nueva solicitud
+    // ============================================================
+    @PostMapping
+    public ResponseEntity<SolicitudResponseDTO> crearSolicitud(
+            @Valid @RequestBody SolicitudRequestDTO request) {
+        log.info("POST /solicitudes - Creando nueva solicitud");
+        SolicitudResponseDTO response = solicitudService.crearSolicitud(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    // ============================================================
+    // READ - Obtener todas las solicitudes (paginado)
+    // ============================================================
+    @GetMapping
+    public ResponseEntity<Page<SolicitudResponseDTO>> obtenerTodasLasSolicitudes(
+            @PageableDefault(size = 10, sort = "fechaCreacion", direction = Sort.Direction.DESC) Pageable pageable) {
+        log.info("GET /solicitudes - Obteniendo todas las solicitudes");
+        Page<SolicitudResponseDTO> response = solicitudService.obtenerTodasLasSolicitudes(pageable);
+        return ResponseEntity.ok(response);
+    }
+
+    // ============================================================
+    // READ - Obtener solicitud por ID
+    // ============================================================
+    @GetMapping("/{id}")
+    public ResponseEntity<SolicitudResponseDTO> obtenerSolicitudPorId(@PathVariable Long id) {
+        log.info("GET /solicitudes/{} - Obteniendo solicitud por ID", id);
+        SolicitudResponseDTO response = solicitudService.obtenerSolicitudPorId(id);
+        return ResponseEntity.ok(response);
+    }
+
+    // ============================================================
+    // READ - Obtener solicitud por código
+    // ============================================================
+    @GetMapping("/codigo/{codigo}")
+    public ResponseEntity<SolicitudResponseDTO> obtenerSolicitudPorCodigo(@PathVariable String codigo) {
+        log.info("GET /solicitudes/codigo/{} - Obteniendo solicitud por código", codigo);
+        SolicitudResponseDTO response = solicitudService.obtenerSolicitudPorCodigo(codigo);
+        return ResponseEntity.ok(response);
+    }
+
+    // ============================================================
+    // READ - Obtener solicitudes por empleado
+    // ============================================================
+    @GetMapping("/empleado/{documento}")
+    public ResponseEntity<List<SolicitudResponseDTO>> obtenerSolicitudesPorEmpleado(
+            @PathVariable String documento) {
+        log.info("GET /solicitudes/empleado/{} - Obteniendo solicitudes del empleado", documento);
+        List<SolicitudResponseDTO> response = solicitudService.obtenerSolicitudesPorEmpleado(documento);
+        return ResponseEntity.ok(response);
+    }
+
+    // ============================================================
+    // READ - Obtener solicitudes por estado
+    // ============================================================
+    @GetMapping("/estado/{estadoId}")
+    public ResponseEntity<List<SolicitudResponseDTO>> obtenerSolicitudesPorEstado(
+            @PathVariable Long estadoId) {
+        log.info("GET /solicitudes/estado/{} - Obteniendo solicitudes por estado", estadoId);
+        List<SolicitudResponseDTO> response = solicitudService.obtenerSolicitudesPorEstado(estadoId);
+        return ResponseEntity.ok(response);
+    }
+
+    // ============================================================
+    // READ - Obtener todos los estados disponibles (CATÁLOGO)
+    // ============================================================
+    @GetMapping("/estados")
+    public ResponseEntity<List<EstadoSolicitudDTO>> obtenerTodosLosEstados() {
+        log.info("GET /solicitudes/estados - Obteniendo todos los estados");
+
+        List<EstadoSolicitud> estados = estadoSolicitudRepository.findAll();
+
+        List<EstadoSolicitudDTO> estadosDTO = estados.stream()
+                .map(this::convertirEstadoADTO)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(estadosDTO);
+    }
+
+    // ============================================================
+    // READ - Obtener todos los tipos de solicitud (CATÁLOGO)
+    // ============================================================
+    @GetMapping("/tipos")
+    public ResponseEntity<List<TipoSolicitudDTO>> obtenerTodosLosTipos() {
+        log.info("GET /solicitudes/tipos - Obteniendo todos los tipos de solicitud");
+
+        List<TipoSolicitud> tipos = tipoSolicitudRepository.findAll();
+
+        List<TipoSolicitudDTO> tiposDTO = tipos.stream()
+                .map(this::convertirTipoADTO)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(tiposDTO);
+    }
+
+    // ============================================================
+    // UPDATE - Actualizar solicitud
+    // ============================================================
+    @PutMapping("/{id}")
+    public ResponseEntity<SolicitudResponseDTO> actualizarSolicitud(
+            @PathVariable Long id,
+            @Valid @RequestBody SolicitudRequestDTO request) {
+        log.info("PUT /solicitudes/{} - Actualizando solicitud", id);
+        SolicitudResponseDTO response = solicitudService.actualizarSolicitud(id, request);
+        return ResponseEntity.ok(response);
+    }
+
+    // ============================================================
+    // UPDATE - Cambiar estado de una solicitud
+    // ============================================================
+    @PatchMapping("/{id}/estado")
+    public ResponseEntity<SolicitudResponseDTO> cambiarEstadoSolicitud(
+            @PathVariable Long id,
+            @RequestParam Long nuevoEstadoId,
+            @RequestParam(required = false) String observacion) {
+        log.info("PATCH /solicitudes/{}/estado - Cambiando estado a {}", id, nuevoEstadoId);
+        SolicitudResponseDTO response = solicitudService.cambiarEstadoSolicitud(id, nuevoEstadoId, observacion);
+        return ResponseEntity.ok(response);
+    }
+
+    // ============================================================
+    // DELETE - Eliminar solicitud
+    // ============================================================
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminarSolicitud(@PathVariable Long id) {
+        log.info("DELETE /solicitudes/{} - Eliminando solicitud", id);
+        solicitudService.eliminarSolicitud(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ============================================================
+    // ESTADÍSTICAS - Contar solicitudes por estado
+    // ============================================================
+    @GetMapping("/contar/estado/{estadoId}")
+    public ResponseEntity<Long> contarSolicitudesPorEstado(@PathVariable Long estadoId) {
+        log.info("GET /solicitudes/contar/estado/{} - Contando solicitudes por estado", estadoId);
+        Long count = solicitudService.contarSolicitudesPorEstado(estadoId);
+        return ResponseEntity.ok(count);
+    }
+
+    // ============================================================
+    // MÉTODOS AUXILIARES DE CONVERSIÓN
+    // ============================================================
+
+    private EstadoSolicitudDTO convertirEstadoADTO(EstadoSolicitud estado) {
+        EstadoSolicitudDTO dto = new EstadoSolicitudDTO();
+        dto.setId(estado.getId());
+        dto.setCodigo(estado.getCodigo());
+        dto.setNombre(estado.getNombre());
+        dto.setColor(estado.getColor());
+        dto.setFase(estado.getFase());
+        return dto;
+    }
+
+    private TipoSolicitudDTO convertirTipoADTO(TipoSolicitud tipo) {
+        TipoSolicitudDTO dto = new TipoSolicitudDTO();
+        dto.setId(tipo.getId());
+        dto.setCodigo(tipo.getCodigo());
+        dto.setNombre(tipo.getNombre());
+        return dto;
+    }
+}
