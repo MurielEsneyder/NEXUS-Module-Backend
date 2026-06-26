@@ -67,7 +67,10 @@ public class SolicitudServiceImpl implements SolicitudService {
 
         // Crear requerimientos si existen
         if (request.getRequerimientos() != null && !request.getRequerimientos().isEmpty()) {
+            log.info("📋 Creando {} requerimientos", request.getRequerimientos().size());
             crearRequerimientos(solicitudGuardada, request.getRequerimientos());
+        } else {
+            log.warn("⚠️ No se recibieron requerimientos");
         }
 
         // Crear auditoría inicial
@@ -135,9 +138,15 @@ public class SolicitudServiceImpl implements SolicitudService {
         return convertirADTO(solicitud);
     }
 
+    // ============================================================
+    // MÉTODO MODIFICADO CON JOIN FETCH
+    // ============================================================
     @Override
     public Page<SolicitudResponseDTO> obtenerTodasLasSolicitudes(Pageable pageable) {
-        return solicitudRepository.findAll(pageable).map(this::convertirADTO);
+        log.info("📋 Obteniendo todas las solicitudes con sus requerimientos");
+        // Usar el método con JOIN FETCH para cargar los requerimientos
+        Page<Solicitud> solicitudes = solicitudRepository.findAllWithRequerimientos(pageable);
+        return solicitudes.map(this::convertirADTO);
     }
 
     @Override
@@ -246,6 +255,7 @@ public class SolicitudServiceImpl implements SolicitudService {
 
     /**
      * Convierte una entidad Solicitud a SolicitudResponseDTO
+     * AHORA CON CONTEO DE REQUERIMIENTOS USANDO EL REPOSITORIO
      */
     private SolicitudResponseDTO convertirADTO(Solicitud solicitud) {
         SolicitudResponseDTO dto = new SolicitudResponseDTO();
@@ -288,14 +298,17 @@ public class SolicitudServiceImpl implements SolicitudService {
             dto.setEstado(estadoDTO);
         }
 
-        // Resumen de requerimientos
-        if (solicitud.getRequerimientos() != null) {
-            dto.setTotalRequerimientos(solicitud.getRequerimientos().size());
-            dto.setRequerimientosFuncionales((int) solicitud.getRequerimientos().stream()
-                    .filter(r -> r.getTipoRequerimiento() == 0).count());
-            dto.setRequerimientosNoFuncionales((int) solicitud.getRequerimientos().stream()
-                    .filter(r -> r.getTipoRequerimiento() == 1).count());
-        }
+        // ============================================================
+        // CONTAR REQUERIMIENTOS DIRECTAMENTE DESDE EL REPOSITORIO
+        // ============================================================
+        int totalReq = requerimientoRepository.countBySolicitudId(solicitud.getId());
+        dto.setTotalRequerimientos(totalReq);
+
+        List<Requerimiento> reqs = requerimientoRepository.findBySolicitudId(solicitud.getId());
+        dto.setRequerimientosFuncionales((int) reqs.stream()
+                .filter(r -> r.getTipoRequerimiento() == 0).count());
+        dto.setRequerimientosNoFuncionales((int) reqs.stream()
+                .filter(r -> r.getTipoRequerimiento() == 1).count());
 
         return dto;
     }

@@ -1,6 +1,8 @@
 package com.asmetsalud.nexus.solicitudes.repository;
 
 import com.asmetsalud.nexus.solicitudes.entity.Solicitud;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -25,4 +27,10 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
 
     @Query("SELECT COUNT(s) FROM Solicitud s WHERE s.estado.id = :estadoId")
     Long countByEstadoId(@Param("estadoId") Long estadoId);
+
+    // ============================================================
+    // NUEVO MÉTODO CON JOIN FETCH PARA CARGAR REQUERIMIENTOS
+    // ============================================================
+    @Query("SELECT DISTINCT s FROM Solicitud s LEFT JOIN FETCH s.requerimientos")
+    Page<Solicitud> findAllWithRequerimientos(Pageable pageable);
 }
