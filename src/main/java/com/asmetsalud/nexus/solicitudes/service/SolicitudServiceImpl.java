@@ -27,22 +27,16 @@ public class SolicitudServiceImpl implements SolicitudService {
     private final EstadoSolicitudRepository estadoSolicitudRepository;
     private final AuditoriaRepository auditoriaRepository;
 
-    // ============================================================
-    // MÉTODOS CRUD PRINCIPALES
-    // ============================================================
-
     @Override
     public SolicitudResponseDTO crearSolicitud(SolicitudRequestDTO request) {
         log.info("Creando nueva solicitud para empleado: {}", request.getEmpleadoDocumento());
 
-        // Validar y obtener entidades relacionadas
         TipoSolicitud tipoSolicitud = tipoSolicitudRepository.findById(request.getTipoSolicitudId())
                 .orElseThrow(() -> new ResourceNotFoundException("Tipo de solicitud no encontrado con ID: " + request.getTipoSolicitudId()));
 
         EstadoSolicitud estado = estadoSolicitudRepository.findById(request.getEstadoId())
                 .orElseThrow(() -> new ResourceNotFoundException("Estado no encontrado con ID: " + request.getEstadoId()));
 
-        // Crear la solicitud
         Solicitud solicitud = new Solicitud();
         solicitud.setCodigo(generarCodigoSolicitud());
         solicitud.setFechaCreacion(LocalDate.now());
@@ -61,19 +55,13 @@ public class SolicitudServiceImpl implements SolicitudService {
         solicitud.setImpacto(request.getImpacto());
         solicitud.setUsuarioRegistro(request.getEmpleadoNombre().toLowerCase().replace(" ", "."));
 
-        // Guardar la solicitud
         Solicitud solicitudGuardada = solicitudRepository.save(solicitud);
         log.info("Solicitud creada con ID: {} y código: {}", solicitudGuardada.getId(), solicitudGuardada.getCodigo());
 
-        // Crear requerimientos si existen
         if (request.getRequerimientos() != null && !request.getRequerimientos().isEmpty()) {
-            log.info("📋 Creando {} requerimientos", request.getRequerimientos().size());
             crearRequerimientos(solicitudGuardada, request.getRequerimientos());
-        } else {
-            log.warn("⚠️ No se recibieron requerimientos");
         }
 
-        // Crear auditoría inicial
         crearAuditoria(solicitudGuardada, null, estado, "Solicitud creada", 1);
 
         return convertirADTO(solicitudGuardada);
@@ -86,7 +74,6 @@ public class SolicitudServiceImpl implements SolicitudService {
         Solicitud solicitud = solicitudRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Solicitud no encontrada con ID: " + id));
 
-        // Actualizar campos básicos
         solicitud.setEmpleadoDocumento(request.getEmpleadoDocumento());
         solicitud.setEmpleadoNombre(request.getEmpleadoNombre());
         solicitud.setEmpleadoCorreo(request.getEmpleadoCorreo());
@@ -99,7 +86,6 @@ public class SolicitudServiceImpl implements SolicitudService {
         solicitud.setObservaciones(request.getObservaciones());
         solicitud.setImpacto(request.getImpacto());
 
-        // Actualizar tipo de solicitud si se proporciona
         if (request.getTipoSolicitudId() != null) {
             TipoSolicitud tipoSolicitud = tipoSolicitudRepository.findById(request.getTipoSolicitudId())
                     .orElseThrow(() -> new ResourceNotFoundException("Tipo de solicitud no encontrado con ID: " + request.getTipoSolicitudId()));
@@ -138,15 +124,9 @@ public class SolicitudServiceImpl implements SolicitudService {
         return convertirADTO(solicitud);
     }
 
-    // ============================================================
-    // MÉTODO MODIFICADO CON JOIN FETCH
-    // ============================================================
     @Override
     public Page<SolicitudResponseDTO> obtenerTodasLasSolicitudes(Pageable pageable) {
-        log.info("📋 Obteniendo todas las solicitudes con sus requerimientos");
-        // Usar el método con JOIN FETCH para cargar los requerimientos
-        Page<Solicitud> solicitudes = solicitudRepository.findAllWithRequerimientos(pageable);
-        return solicitudes.map(this::convertirADTO);
+        return solicitudRepository.findAll(pageable).map(this::convertirADTO);
     }
 
     @Override
@@ -184,11 +164,9 @@ public class SolicitudServiceImpl implements SolicitudService {
         EstadoSolicitud nuevoEstado = estadoSolicitudRepository.findById(nuevoEstadoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Estado no encontrado con ID: " + nuevoEstadoId));
 
-        // Actualizar estado
         solicitud.setEstado(nuevoEstado);
         Solicitud solicitudActualizada = solicitudRepository.save(solicitud);
 
-        // Registrar en auditoría
         crearAuditoria(solicitudActualizada, estadoAnterior, nuevoEstado, observacion, nuevoEstado.getFase());
 
         log.info("Estado cambiado exitosamente para solicitud ID: {}", id);
@@ -200,21 +178,11 @@ public class SolicitudServiceImpl implements SolicitudService {
         return solicitudRepository.countByEstadoId(estadoId);
     }
 
-    // ============================================================
-    // MÉTODOS PRIVADOS AUXILIARES
-    // ============================================================
-
-    /**
-     * Genera un código de solicitud secuencial con formato SD_XXX
-     */
     private String generarCodigoSolicitud() {
         Long count = solicitudRepository.count();
         return String.format("SD_%03d", count + 1);
     }
 
-    /**
-     * Crea los requerimientos asociados a una solicitud
-     */
     private void crearRequerimientos(Solicitud solicitud, List<RequerimientoRequestDTO> requerimientosDTO) {
         for (RequerimientoRequestDTO reqDTO : requerimientosDTO) {
             Requerimiento requerimiento = new Requerimiento();
@@ -224,7 +192,6 @@ public class SolicitudServiceImpl implements SolicitudService {
             requerimiento.setDetalle(reqDTO.getDetalle());
             requerimiento.setUsuarioRegistro(solicitud.getUsuarioRegistro());
 
-            // Calcular número de orden y código
             Integer maxOrden = requerimientoRepository.findMaxNumeroOrdenBySolicitudIdAndTipo(
                     solicitud.getId(), reqDTO.getTipoRequerimiento());
             int nuevoOrden = (maxOrden != null) ? maxOrden + 1 : 1;
@@ -237,9 +204,6 @@ public class SolicitudServiceImpl implements SolicitudService {
         }
     }
 
-    /**
-     * Crea un registro de auditoría para tracking de cambios
-     */
     private void crearAuditoria(Solicitud solicitud, EstadoSolicitud estadoAnterior,
                                 EstadoSolicitud estadoNuevo, String observacion, Integer fase) {
         Auditoria auditoria = new Auditoria();
@@ -253,10 +217,6 @@ public class SolicitudServiceImpl implements SolicitudService {
         auditoriaRepository.save(auditoria);
     }
 
-    /**
-     * Convierte una entidad Solicitud a SolicitudResponseDTO
-     * AHORA CON CONTEO DE REQUERIMIENTOS USANDO EL REPOSITORIO
-     */
     private SolicitudResponseDTO convertirADTO(Solicitud solicitud) {
         SolicitudResponseDTO dto = new SolicitudResponseDTO();
         dto.setId(solicitud.getId());
@@ -278,7 +238,6 @@ public class SolicitudServiceImpl implements SolicitudService {
         dto.setCreatedAt(solicitud.getCreatedAt());
         dto.setUpdatedAt(solicitud.getUpdatedAt());
 
-        // Tipo de solicitud
         if (solicitud.getTipoSolicitud() != null) {
             TipoSolicitudDTO tipoDTO = new TipoSolicitudDTO();
             tipoDTO.setId(solicitud.getTipoSolicitud().getId());
@@ -287,7 +246,6 @@ public class SolicitudServiceImpl implements SolicitudService {
             dto.setTipoSolicitud(tipoDTO);
         }
 
-        // Estado
         if (solicitud.getEstado() != null) {
             EstadoSolicitudDTO estadoDTO = new EstadoSolicitudDTO();
             estadoDTO.setId(solicitud.getEstado().getId());
@@ -298,17 +256,13 @@ public class SolicitudServiceImpl implements SolicitudService {
             dto.setEstado(estadoDTO);
         }
 
-        // ============================================================
-        // CONTAR REQUERIMIENTOS DIRECTAMENTE DESDE EL REPOSITORIO
-        // ============================================================
-        int totalReq = requerimientoRepository.countBySolicitudId(solicitud.getId());
-        dto.setTotalRequerimientos(totalReq);
-
-        List<Requerimiento> reqs = requerimientoRepository.findBySolicitudId(solicitud.getId());
-        dto.setRequerimientosFuncionales((int) reqs.stream()
-                .filter(r -> r.getTipoRequerimiento() == 0).count());
-        dto.setRequerimientosNoFuncionales((int) reqs.stream()
-                .filter(r -> r.getTipoRequerimiento() == 1).count());
+        if (solicitud.getRequerimientos() != null) {
+            dto.setTotalRequerimientos(solicitud.getRequerimientos().size());
+            dto.setRequerimientosFuncionales((int) solicitud.getRequerimientos().stream()
+                    .filter(r -> r.getTipoRequerimiento() == 0).count());
+            dto.setRequerimientosNoFuncionales((int) solicitud.getRequerimientos().stream()
+                    .filter(r -> r.getTipoRequerimiento() == 1).count());
+        }
 
         return dto;
     }

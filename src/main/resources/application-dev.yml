@@ -24,6 +24,10 @@ server:
   servlet:
     context-path: /api/v1
 
+jwt:
+  secret: miClaveSecretaSuperSeguraParaJWT123456789
+  expiration: 86400000
+
 logging:
   level:
     com.asmetsalud.nexus: DEBUG

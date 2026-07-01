@@ -18,10 +18,4 @@ public interface RequerimientoRepository extends JpaRepository<Requerimiento, Lo
     @Query("SELECT MAX(r.numeroOrden) FROM Requerimiento r WHERE r.solicitud.id = :solicitudId AND r.tipoRequerimiento = :tipo")
     Integer findMaxNumeroOrdenBySolicitudIdAndTipo(@Param("solicitudId") Long solicitudId,
                                                    @Param("tipo") Short tipo);
-
-    // ============================================================
-    // NUEVO MÉTODO PARA CONTAR REQUERIMIENTOS POR SOLICITUD
-    // ============================================================
-    @Query("SELECT COUNT(r) FROM Requerimiento r WHERE r.solicitud.id = :solicitudId")
-    int countBySolicitudId(@Param("solicitudId") Long solicitudId);
 }
