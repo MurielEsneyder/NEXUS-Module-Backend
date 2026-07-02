@@ -10,6 +10,10 @@ import java.util.List;
 
 public interface SolicitudService {
 
+    // ============================================================
+    // CRUD
+    // ============================================================
+
     SolicitudResponseDTO crearSolicitud(SolicitudRequestDTO request);
 
     SolicitudResponseDTO actualizarSolicitud(Long id, SolicitudRequestDTO request);
@@ -26,9 +30,23 @@ public interface SolicitudService {
 
     List<SolicitudResponseDTO> obtenerSolicitudesPorEstado(Long estadoId);
 
-    List<SolicitudResponseDTO> obtenerSolicitudesPorRangoFechas(LocalDate fechaInicio, LocalDate fechaFin);
+    List<SolicitudResponseDTO> obtenerSolicitudesPorRangoFechas(
+            LocalDate fechaInicio,
+            LocalDate fechaFin
+    );
 
-    SolicitudResponseDTO cambiarEstadoSolicitud(Long id, Long nuevoEstadoId, String observacion);
+    SolicitudResponseDTO cambiarEstadoSolicitud(
+            Long id,
+            Long nuevoEstadoId,
+            String observacion
+    );
 
     Long contarSolicitudesPorEstado(Long estadoId);
+
+    // ============================================================
+    // PDF
+    // ============================================================
+
+    byte[] generarPDF(Long id);
+
 }

@@ -38,6 +38,12 @@ public class Requerimiento {
     @Column(name = "detalle", nullable = false, columnDefinition = "TEXT")
     private String detalle;
 
+    // ============================================================
+    // NUEVO CAMPO
+    // ============================================================
+    @Column(name = "cargo_impactado", length = 100)
+    private String cargoImpactado;
+
     @Column(name = "fecha_ingreso", nullable = false)
     private LocalDate fechaIngreso;
 

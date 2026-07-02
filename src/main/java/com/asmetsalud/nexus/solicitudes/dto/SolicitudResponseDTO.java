@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -34,4 +35,9 @@ public class SolicitudResponseDTO {
     private Integer totalRequerimientos;
     private Integer requerimientosFuncionales;
     private Integer requerimientosNoFuncionales;
+
+    // ============================================================
+    // NUEVO: Lista de requerimientos para el PDF
+    // ============================================================
+    private List<RequerimientoResponseDTO> requerimientos;
 }

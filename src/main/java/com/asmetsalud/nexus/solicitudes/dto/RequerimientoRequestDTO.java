@@ -22,5 +22,9 @@ public class RequerimientoRequestDTO {
     @NotBlank(message = "El detalle del requerimiento es obligatorio")
     private String detalle;
 
+    // ============================================================
+    // NUEVOS CAMPOS
+    // ============================================================
+    private String cargoImpactado;
     private List<Long> cargosImpactadosIds;
 }
