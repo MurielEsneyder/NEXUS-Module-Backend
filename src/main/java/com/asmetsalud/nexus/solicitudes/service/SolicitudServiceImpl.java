@@ -2,17 +2,7 @@ package com.asmetsalud.nexus.solicitudes.service;
 
 import com.asmetsalud.nexus.solicitudes.dto.*;
 import com.asmetsalud.nexus.solicitudes.entity.*;
-import com.asmetsalud.nexus.solicitudes.exception.ResourceNotFoundException;
 import com.asmetsalud.nexus.solicitudes.repository.*;
-import com.lowagie.text.Document;
-import com.lowagie.text.Element;
-import com.lowagie.text.Font;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -20,9 +10,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,24 +26,29 @@ public class SolicitudServiceImpl implements SolicitudService {
 
     private final SolicitudRepository solicitudRepository;
     private final RequerimientoRepository requerimientoRepository;
-    private final TipoSolicitudRepository tipoSolicitudRepository;
     private final EstadoSolicitudRepository estadoSolicitudRepository;
+    private final TipoSolicitudRepository tipoSolicitudRepository;
     private final AuditoriaRepository auditoriaRepository;
 
-    // ============================================================
-    // MÉTODOS CRUD PRINCIPALES
-    // ============================================================
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
+    private static final List<String> PRIORIDADES_VALIDAS = Arrays.asList("alta", "media", "baja");
 
     @Override
     public SolicitudResponseDTO crearSolicitud(SolicitudRequestDTO request) {
-        log.info("Creando nueva solicitud para empleado: {}", request.getEmpleadoDocumento());
+        log.info("📝 Creando nueva solicitud para: {}", request.getEmpleadoNombre());
 
-        TipoSolicitud tipoSolicitud = tipoSolicitudRepository.findById(request.getTipoSolicitudId())
-                .orElseThrow(() -> new ResourceNotFoundException("Tipo de solicitud no encontrado con ID: " + request.getTipoSolicitudId()));
-
+        // Validar que el estado existe
         EstadoSolicitud estado = estadoSolicitudRepository.findById(request.getEstadoId())
-                .orElseThrow(() -> new ResourceNotFoundException("Estado no encontrado con ID: " + request.getEstadoId()));
+                .orElseThrow(() -> new RuntimeException("Estado no encontrado con ID: " + request.getEstadoId()));
 
+        // Validar que el tipo existe
+        TipoSolicitud tipo = tipoSolicitudRepository.findById(request.getTipoSolicitudId())
+                .orElseThrow(() -> new RuntimeException("Tipo de solicitud no encontrado con ID: " + request.getTipoSolicitudId()));
+
+        // Validar prioridad
+        String prioridad = validarPrioridad(request.getPrioridad());
+
+        // Crear la solicitud
         Solicitud solicitud = new Solicitud();
         solicitud.setCodigo(generarCodigoSolicitud());
         solicitud.setFechaCreacion(LocalDate.now());
@@ -64,268 +61,199 @@ public class SolicitudServiceImpl implements SolicitudService {
         solicitud.setProcesoId(request.getProcesoId());
         solicitud.setAreaId(request.getAreaId());
         solicitud.setMacroprocesoId(request.getMacroprocesoId());
-        solicitud.setTipoSolicitud(tipoSolicitud);
+        solicitud.setTipoSolicitud(tipo);
         solicitud.setEstado(estado);
+        solicitud.setPrioridad(prioridad);
         solicitud.setObservaciones(request.getObservaciones());
         solicitud.setImpacto(request.getImpacto());
-        solicitud.setUsuarioRegistro(request.getEmpleadoNombre().toLowerCase().replace(" ", "."));
+        solicitud.setUsuarioRegistro(request.getEmpleadoNombre());
 
-        Solicitud solicitudGuardada = solicitudRepository.save(solicitud);
-        log.info("Solicitud creada con ID: {} y código: {}", solicitudGuardada.getId(), solicitudGuardada.getCodigo());
+        // Guardar la solicitud
+        Solicitud savedSolicitud = solicitudRepository.save(solicitud);
+        log.info("✅ Solicitud creada con ID: {} y Código: {}", savedSolicitud.getId(), savedSolicitud.getCodigo());
 
+        // Procesar requerimientos
         if (request.getRequerimientos() != null && !request.getRequerimientos().isEmpty()) {
-            crearRequerimientos(solicitudGuardada, request.getRequerimientos());
+            procesarRequerimientos(savedSolicitud, request.getRequerimientos());
         }
 
-        crearAuditoria(solicitudGuardada, null, estado, "Solicitud creada", 1);
+        // Registrar auditoría inicial
+        registrarAuditoria(savedSolicitud, null, estado, "Solicitud creada");
 
-        return convertirADTO(solicitudGuardada);
+        // Obtener la solicitud con todos los datos
+        return convertirADTOConRequerimientos(savedSolicitud);
+    }
+
+    @Override
+    public Page<SolicitudResponseDTO> obtenerTodasLasSolicitudes(Pageable pageable) {
+        log.info("📋 Obteniendo todas las solicitudes");
+        return solicitudRepository.findAll(pageable)
+                .map(this::convertirADTOConRequerimientos);
+    }
+
+    @Override
+    public SolicitudResponseDTO obtenerSolicitudPorId(Long id) {
+        log.info("🔍 Obteniendo solicitud por ID: {}", id);
+        Solicitud solicitud = solicitudRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Solicitud no encontrada con ID: " + id));
+        return convertirADTOConRequerimientos(solicitud);
+    }
+
+    @Override
+    public SolicitudResponseDTO obtenerSolicitudPorCodigo(String codigo) {
+        log.info("🔍 Obteniendo solicitud por código: {}", codigo);
+        Solicitud solicitud = solicitudRepository.findByCodigo(codigo)
+                .orElseThrow(() -> new RuntimeException("Solicitud no encontrada con código: " + codigo));
+        return convertirADTOConRequerimientos(solicitud);
+    }
+
+    @Override
+    public List<SolicitudResponseDTO> obtenerSolicitudesPorEmpleado(String documento) {
+        log.info("🔍 Obteniendo solicitudes del empleado: {}", documento);
+        List<Solicitud> solicitudes = solicitudRepository.findByEmpleadoDocumento(documento);
+        return solicitudes.stream()
+                .map(this::convertirADTOConRequerimientos)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<SolicitudResponseDTO> obtenerSolicitudesPorEstado(Long estadoId) {
+        log.info("🔍 Obteniendo solicitudes por estado: {}", estadoId);
+        List<Solicitud> solicitudes = solicitudRepository.findByEstadoId(estadoId);
+        return solicitudes.stream()
+                .map(this::convertirADTOConRequerimientos)
+                .collect(Collectors.toList());
     }
 
     @Override
     public SolicitudResponseDTO actualizarSolicitud(Long id, SolicitudRequestDTO request) {
-        log.info("Actualizando solicitud con ID: {}", id);
+        log.info("✏️ Actualizando solicitud ID: {}", id);
 
         Solicitud solicitud = solicitudRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Solicitud no encontrada con ID: " + id));
+                .orElseThrow(() -> new RuntimeException("Solicitud no encontrada con ID: " + id));
 
-        solicitud.setEmpleadoDocumento(request.getEmpleadoDocumento());
-        solicitud.setEmpleadoNombre(request.getEmpleadoNombre());
-        solicitud.setEmpleadoCorreo(request.getEmpleadoCorreo());
-        solicitud.setEmpleadoCargo(request.getEmpleadoCargo());
-        solicitud.setEmpleadoSede(request.getEmpleadoSede());
+        // Actualizar campos básicos
         solicitud.setSolicitudProceso(request.getSolicitudProceso());
         solicitud.setProcesoId(request.getProcesoId());
         solicitud.setAreaId(request.getAreaId());
         solicitud.setMacroprocesoId(request.getMacroprocesoId());
         solicitud.setObservaciones(request.getObservaciones());
         solicitud.setImpacto(request.getImpacto());
+        solicitud.setPrioridad(validarPrioridad(request.getPrioridad()));
 
-        if (request.getTipoSolicitudId() != null) {
-            TipoSolicitud tipoSolicitud = tipoSolicitudRepository.findById(request.getTipoSolicitudId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Tipo de solicitud no encontrado con ID: " + request.getTipoSolicitudId()));
-            solicitud.setTipoSolicitud(tipoSolicitud);
+        // Actualizar tipo si cambió
+        if (!solicitud.getTipoSolicitud().getId().equals(request.getTipoSolicitudId())) {
+            TipoSolicitud tipo = tipoSolicitudRepository.findById(request.getTipoSolicitudId())
+                    .orElseThrow(() -> new RuntimeException("Tipo de solicitud no encontrado"));
+            solicitud.setTipoSolicitud(tipo);
         }
 
-        Solicitud solicitudActualizada = solicitudRepository.save(solicitud);
-        log.info("Solicitud actualizada con ID: {}", solicitudActualizada.getId());
-
-        return convertirADTO(solicitudActualizada);
-    }
-
-    @Override
-    public void eliminarSolicitud(Long id) {
-        log.info("Eliminando solicitud con ID: {}", id);
-
-        if (!solicitudRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Solicitud no encontrada con ID: " + id);
+        // Actualizar estado si cambió
+        if (!solicitud.getEstado().getId().equals(request.getEstadoId())) {
+            EstadoSolicitud estado = estadoSolicitudRepository.findById(request.getEstadoId())
+                    .orElseThrow(() -> new RuntimeException("Estado no encontrado"));
+            EstadoSolicitud estadoAnterior = solicitud.getEstado();
+            solicitud.setEstado(estado);
+            registrarAuditoria(solicitud, estadoAnterior, estado, "Actualización de estado desde edición");
         }
 
-        solicitudRepository.deleteById(id);
-        log.info("Solicitud eliminada con ID: {}", id);
-    }
+        Solicitud updatedSolicitud = solicitudRepository.save(solicitud);
+        log.info("✅ Solicitud actualizada ID: {}", updatedSolicitud.getId());
 
-    @Override
-    public SolicitudResponseDTO obtenerSolicitudPorId(Long id) {
-        Solicitud solicitud = solicitudRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Solicitud no encontrada con ID: " + id));
-        return convertirADTO(solicitud);
-    }
-
-    @Override
-    public SolicitudResponseDTO obtenerSolicitudPorCodigo(String codigo) {
-        Solicitud solicitud = solicitudRepository.findByCodigo(codigo)
-                .orElseThrow(() -> new ResourceNotFoundException("Solicitud no encontrada con código: " + codigo));
-        return convertirADTO(solicitud);
-    }
-
-    @Override
-    public Page<SolicitudResponseDTO> obtenerTodasLasSolicitudes(Pageable pageable) {
-        return solicitudRepository.findAll(pageable).map(this::convertirADTO);
-    }
-
-    @Override
-    public List<SolicitudResponseDTO> obtenerSolicitudesPorEmpleado(String documento) {
-        return solicitudRepository.findByEmpleadoDocumento(documento)
-                .stream()
-                .map(this::convertirADTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<SolicitudResponseDTO> obtenerSolicitudesPorEstado(Long estadoId) {
-        return solicitudRepository.findByEstadoId(estadoId)
-                .stream()
-                .map(this::convertirADTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<SolicitudResponseDTO> obtenerSolicitudesPorRangoFechas(LocalDate fechaInicio, LocalDate fechaFin) {
-        return solicitudRepository.findByFechaCreacionBetween(fechaInicio, fechaFin)
-                .stream()
-                .map(this::convertirADTO)
-                .collect(Collectors.toList());
+        return convertirADTOConRequerimientos(updatedSolicitud);
     }
 
     @Override
     public SolicitudResponseDTO cambiarEstadoSolicitud(Long id, Long nuevoEstadoId, String observacion) {
-        log.info("Cambiando estado de solicitud ID: {} a estado ID: {}", id, nuevoEstadoId);
+        log.info("🔄 Cambiando estado de solicitud ID: {} a estado ID: {}", id, nuevoEstadoId);
 
         Solicitud solicitud = solicitudRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Solicitud no encontrada con ID: " + id));
+                .orElseThrow(() -> new RuntimeException("Solicitud no encontrada con ID: " + id));
 
         EstadoSolicitud estadoAnterior = solicitud.getEstado();
         EstadoSolicitud nuevoEstado = estadoSolicitudRepository.findById(nuevoEstadoId)
-                .orElseThrow(() -> new ResourceNotFoundException("Estado no encontrado con ID: " + nuevoEstadoId));
+                .orElseThrow(() -> new RuntimeException("Estado no encontrado con ID: " + nuevoEstadoId));
+
+        // No permitir cambiar al mismo estado
+        if (estadoAnterior.getId().equals(nuevoEstado.getId())) {
+            throw new RuntimeException("La solicitud ya se encuentra en el estado: " + estadoAnterior.getNombre());
+        }
 
         solicitud.setEstado(nuevoEstado);
-        Solicitud solicitudActualizada = solicitudRepository.save(solicitud);
+        Solicitud updatedSolicitud = solicitudRepository.save(solicitud);
 
-        crearAuditoria(solicitudActualizada, estadoAnterior, nuevoEstado, observacion, nuevoEstado.getFase());
+        // Registrar auditoría
+        registrarAuditoria(solicitud, estadoAnterior, nuevoEstado, observacion);
 
-        log.info("Estado cambiado exitosamente para solicitud ID: {}", id);
-        return convertirADTO(solicitudActualizada);
+        log.info("✅ Estado cambiado de '{}' a '{}'", estadoAnterior.getNombre(), nuevoEstado.getNombre());
+
+        return convertirADTOConRequerimientos(updatedSolicitud);
+    }
+
+    @Override
+    public SolicitudResponseDTO actualizarPrioridad(Long id, String prioridad) {
+        log.info("✏️ Actualizando prioridad de solicitud ID: {} a {}", id, prioridad);
+
+        Solicitud solicitud = solicitudRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Solicitud no encontrada con ID: " + id));
+
+        String prioridadValidada = validarPrioridad(prioridad);
+        solicitud.setPrioridad(prioridadValidada);
+
+        Solicitud updatedSolicitud = solicitudRepository.save(solicitud);
+        log.info("✅ Prioridad actualizada a: {}", prioridadValidada);
+
+        return convertirADTOConRequerimientos(updatedSolicitud);
+    }
+
+    @Override
+    public void eliminarSolicitud(Long id) {
+        log.info("🗑️ Eliminando solicitud ID: {}", id);
+        Solicitud solicitud = solicitudRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Solicitud no encontrada con ID: " + id));
+        solicitudRepository.delete(solicitud);
+        log.info("✅ Solicitud eliminada ID: {}", id);
     }
 
     @Override
     public Long contarSolicitudesPorEstado(Long estadoId) {
+        log.info("📊 Contando solicitudes por estado ID: {}", estadoId);
         return solicitudRepository.countByEstadoId(estadoId);
     }
 
-    // ============================================================
-    // PDF - Generar PDF
-    // ============================================================
     @Override
-    public byte[] generarPDF(Long solicitudId) {
-        log.info("📄 Generando PDF para solicitud ID: {}", solicitudId);
-
-        Solicitud solicitud = solicitudRepository.findById(solicitudId)
-                .orElseThrow(() -> new ResourceNotFoundException("Solicitud no encontrada con ID: " + solicitudId));
-
-        try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            Document document = new Document(PageSize.A4);
-            PdfWriter.getInstance(document, baos);
-            document.open();
-
-            // ============================================================
-            // TÍTULO PRINCIPAL
-            // ============================================================
-            Font titleFont = new Font(Font.HELVETICA, 18, Font.BOLD);
-            Font subtitleFont = new Font(Font.HELVETICA, 14, Font.BOLD);
-            Font normalFont = new Font(Font.HELVETICA, 12, Font.NORMAL);
-            Font boldFont = new Font(Font.HELVETICA, 12, Font.BOLD);
-
-            Paragraph title = new Paragraph("SOLICITUD DE DESARROLLO", titleFont);
-            title.setAlignment(Element.ALIGN_CENTER);
-            title.setSpacingAfter(20);
-            document.add(title);
-
-            // ============================================================
-            // ENCABEZADO
-            // ============================================================
-            document.add(new Paragraph("Código: " + solicitud.getCodigo(), boldFont));
-            document.add(new Paragraph("Fecha: " + solicitud.getFechaCreacion().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")), normalFont));
-            document.add(new Paragraph(" "));
-
-            // ============================================================
-            // INFORMACIÓN DEL COLABORADOR
-            // ============================================================
-            document.add(new Paragraph("INFORMACIÓN DEL COLABORADOR", subtitleFont));
-            document.add(new Paragraph("Nombre: " + solicitud.getEmpleadoNombre(), normalFont));
-            document.add(new Paragraph("Correo: " + solicitud.getEmpleadoCorreo(), normalFont));
-            document.add(new Paragraph("Cargo: " + solicitud.getEmpleadoCargo(), normalFont));
-            document.add(new Paragraph("Sede: " + solicitud.getEmpleadoSede(), normalFont));
-            document.add(new Paragraph(" "));
-
-            // ============================================================
-            // INFORMACIÓN DE LA SOLICITUD
-            // ============================================================
-            document.add(new Paragraph("INFORMACIÓN DE LA SOLICITUD", subtitleFont));
-            document.add(new Paragraph("Proceso: " + solicitud.getSolicitudProceso(), normalFont));
-            document.add(new Paragraph("Tipo: " + solicitud.getTipoSolicitud().getNombre(), normalFont));
-            document.add(new Paragraph("Estado: " + solicitud.getEstado().getNombre(), normalFont));
-            document.add(new Paragraph(" "));
-
-            // ============================================================
-            // IMPACTO
-            // ============================================================
-            document.add(new Paragraph("IMPACTO", subtitleFont));
-            document.add(new Paragraph(solicitud.getImpacto(), normalFont));
-            document.add(new Paragraph(" "));
-
-            // ============================================================
-            // REQUERIMIENTOS
-            // ============================================================
-            if (solicitud.getRequerimientos() != null && !solicitud.getRequerimientos().isEmpty()) {
-                document.add(new Paragraph("REQUERIMIENTOS", subtitleFont));
-
-                // Crear tabla de requerimientos
-                PdfPTable table = new PdfPTable(4);
-                table.setWidthPercentage(100);
-                table.setSpacingBefore(10);
-                table.setSpacingAfter(10);
-
-                // Encabezados
-                PdfPCell header1 = new PdfPCell(new Phrase("Código", boldFont));
-                PdfPCell header2 = new PdfPCell(new Phrase("Tipo", boldFont));
-                PdfPCell header3 = new PdfPCell(new Phrase("Objetivo", boldFont));
-                PdfPCell header4 = new PdfPCell(new Phrase("Cargo Impactado", boldFont));
-
-                table.addCell(header1);
-                table.addCell(header2);
-                table.addCell(header3);
-                table.addCell(header4);
-
-                // Datos
-                for (Requerimiento req : solicitud.getRequerimientos()) {
-                    String tipo = req.getTipoRequerimiento() == 0 ? "Funcional" : "No Funcional";
-                    table.addCell(req.getCodigo());
-                    table.addCell(tipo);
-                    table.addCell(req.getObjetivo());
-                    table.addCell(req.getCargoImpactado() != null ? req.getCargoImpactado() : "N/A");
-                }
-
-                document.add(table);
-                document.add(new Paragraph(" "));
-            }
-
-            // ============================================================
-            // OBSERVACIONES
-            // ============================================================
-            if (solicitud.getObservaciones() != null && !solicitud.getObservaciones().isEmpty()) {
-                document.add(new Paragraph("OBSERVACIONES", subtitleFont));
-                document.add(new Paragraph(solicitud.getObservaciones(), normalFont));
-            }
-
-            // ============================================================
-            // PIE DE PÁGINA
-            // ============================================================
-            document.add(new Paragraph(" "));
-            document.add(new Paragraph("Documento generado automáticamente por el sistema HyL Sparta", new Font(Font.HELVETICA, 10, Font.ITALIC)));
-
-            document.close();
-
-            log.info("✅ PDF generado exitosamente para solicitud ID: {}", solicitudId);
-            return baos.toByteArray();
-
-        } catch (Exception e) {
-            log.error("❌ Error al generar PDF: {}", e.getMessage());
-            throw new RuntimeException("Error al generar PDF", e);
-        }
+    public byte[] generarPDF(Long id) {
+        log.info("📄 Generando PDF para solicitud ID: {}", id);
+        // TODO: Implementar generación de PDF con iText o JasperReports
+        return new byte[0];
     }
 
     // ============================================================
     // MÉTODOS PRIVADOS AUXILIARES
     // ============================================================
 
-    private String generarCodigoSolicitud() {
-        Long count = solicitudRepository.count();
-        return String.format("SD_%03d", count + 1);
+    private String validarPrioridad(String prioridad) {
+        if (prioridad == null || prioridad.isEmpty() || !PRIORIDADES_VALIDAS.contains(prioridad.toLowerCase())) {
+            log.warn("⚠️ Prioridad no válida: '{}', usando 'media' por defecto", prioridad);
+            return "media";
+        }
+        return prioridad.toLowerCase();
     }
 
-    private void crearRequerimientos(Solicitud solicitud, List<RequerimientoRequestDTO> requerimientosDTO) {
+    private String generarCodigoSolicitud() {
+        String fechaStr = LocalDate.now().format(DATE_FORMATTER);
+        Long count = solicitudRepository.count() + 1;
+        return String.format("SD-%s-%04d", fechaStr, count);
+    }
+
+    private void procesarRequerimientos(Solicitud solicitud, List<RequerimientoRequestDTO> requerimientosDTO) {
+        int contadorFuncional = 0;
+        int contadorNoFuncional = 0;
+
+        // Obtener estado por defecto (Borrador)
+        EstadoSolicitud estadoDefault = estadoSolicitudRepository.findById(1L)
+                .orElseThrow(() -> new RuntimeException("Estado por defecto (Borrador) no encontrado"));
+
         for (RequerimientoRequestDTO reqDTO : requerimientosDTO) {
             Requerimiento requerimiento = new Requerimiento();
             requerimiento.setSolicitud(solicitud);
@@ -333,34 +261,41 @@ public class SolicitudServiceImpl implements SolicitudService {
             requerimiento.setObjetivo(reqDTO.getObjetivo());
             requerimiento.setDetalle(reqDTO.getDetalle());
             requerimiento.setCargoImpactado(reqDTO.getCargoImpactado());
+            requerimiento.setFechaIngreso(LocalDate.now());
             requerimiento.setUsuarioRegistro(solicitud.getUsuarioRegistro());
+            requerimiento.setEstado(estadoDefault);
 
-            Integer maxOrden = requerimientoRepository.findMaxNumeroOrdenBySolicitudIdAndTipo(
-                    solicitud.getId(), reqDTO.getTipoRequerimiento());
-            int nuevoOrden = (maxOrden != null) ? maxOrden + 1 : 1;
-            requerimiento.setNumeroOrden(nuevoOrden);
-
-            String prefijo = reqDTO.getTipoRequerimiento() == 0 ? "RF" : "RNF";
-            requerimiento.setCodigo(String.format("%s_%02d", prefijo, nuevoOrden));
+            // Asignar número de orden y código
+            if (reqDTO.getTipoRequerimiento() == 0) {
+                contadorFuncional++;
+                requerimiento.setNumeroOrden(contadorFuncional);
+                requerimiento.setCodigo(String.format("RF_%02d", contadorFuncional));
+            } else {
+                contadorNoFuncional++;
+                requerimiento.setNumeroOrden(contadorNoFuncional);
+                requerimiento.setCodigo(String.format("RNF_%02d", contadorNoFuncional));
+            }
 
             requerimientoRepository.save(requerimiento);
         }
+        log.info("✅ Procesados {} requerimientos ({} funcionales, {} no funcionales)",
+                requerimientosDTO.size(), contadorFuncional, contadorNoFuncional);
     }
 
-    private void crearAuditoria(Solicitud solicitud, EstadoSolicitud estadoAnterior,
-                                EstadoSolicitud estadoNuevo, String observacion, Integer fase) {
+    private void registrarAuditoria(Solicitud solicitud, EstadoSolicitud estadoAnterior,
+                                    EstadoSolicitud estadoNuevo, String observacion) {
         Auditoria auditoria = new Auditoria();
         auditoria.setSolicitud(solicitud);
         auditoria.setEstadoAnterior(estadoAnterior);
         auditoria.setEstadoNuevo(estadoNuevo);
         auditoria.setObservacion(observacion);
-        auditoria.setFase(fase);
+        auditoria.setFase(estadoNuevo.getFase() != null ? estadoNuevo.getFase() : 1);
         auditoria.setUsuarioRegistro(solicitud.getUsuarioRegistro());
-
         auditoriaRepository.save(auditoria);
+        log.info("📝 Auditoría registrada para solicitud ID: {}", solicitud.getId());
     }
 
-    private SolicitudResponseDTO convertirADTO(Solicitud solicitud) {
+    private SolicitudResponseDTO convertirADTOConRequerimientos(Solicitud solicitud) {
         SolicitudResponseDTO dto = new SolicitudResponseDTO();
         dto.setId(solicitud.getId());
         dto.setCodigo(solicitud.getCodigo());
@@ -376,19 +311,23 @@ public class SolicitudServiceImpl implements SolicitudService {
         dto.setMacroprocesoId(solicitud.getMacroprocesoId());
         dto.setObservaciones(solicitud.getObservaciones());
         dto.setImpacto(solicitud.getImpacto());
+        dto.setPrioridad(solicitud.getPrioridad());
         dto.setPdfNombre(solicitud.getPdfNombre());
         dto.setUsuarioRegistro(solicitud.getUsuarioRegistro());
         dto.setCreatedAt(solicitud.getCreatedAt());
         dto.setUpdatedAt(solicitud.getUpdatedAt());
 
+        // Tipo de solicitud
         if (solicitud.getTipoSolicitud() != null) {
             TipoSolicitudDTO tipoDTO = new TipoSolicitudDTO();
             tipoDTO.setId(solicitud.getTipoSolicitud().getId());
             tipoDTO.setCodigo(solicitud.getTipoSolicitud().getCodigo());
             tipoDTO.setNombre(solicitud.getTipoSolicitud().getNombre());
+            tipoDTO.setActivo(solicitud.getTipoSolicitud().getActivo());
             dto.setTipoSolicitud(tipoDTO);
         }
 
+        // Estado
         if (solicitud.getEstado() != null) {
             EstadoSolicitudDTO estadoDTO = new EstadoSolicitudDTO();
             estadoDTO.setId(solicitud.getEstado().getId());
@@ -396,29 +335,43 @@ public class SolicitudServiceImpl implements SolicitudService {
             estadoDTO.setNombre(solicitud.getEstado().getNombre());
             estadoDTO.setColor(solicitud.getEstado().getColor());
             estadoDTO.setFase(solicitud.getEstado().getFase());
+            estadoDTO.setActivo(solicitud.getEstado().getActivo());
             dto.setEstado(estadoDTO);
         }
 
+        // Requerimientos
+        List<RequerimientoResponseDTO> requerimientosDTO = new ArrayList<>();
         if (solicitud.getRequerimientos() != null) {
-            dto.setTotalRequerimientos(solicitud.getRequerimientos().size());
-            dto.setRequerimientosFuncionales((int) solicitud.getRequerimientos().stream()
-                    .filter(r -> r.getTipoRequerimiento() == 0).count());
-            dto.setRequerimientosNoFuncionales((int) solicitud.getRequerimientos().stream()
-                    .filter(r -> r.getTipoRequerimiento() == 1).count());
+            int funcionales = 0;
+            int noFuncionales = 0;
 
-            List<RequerimientoResponseDTO> reqsDTO = solicitud.getRequerimientos().stream().map(req -> {
+            for (Requerimiento req : solicitud.getRequerimientos()) {
                 RequerimientoResponseDTO reqDTO = new RequerimientoResponseDTO();
                 reqDTO.setId(req.getId());
                 reqDTO.setCodigo(req.getCodigo());
                 reqDTO.setTipoRequerimiento(req.getTipoRequerimiento());
+                reqDTO.setTipoRequerimientoNombre(req.getTipoRequerimiento() == 0 ? "Funcional" : "No Funcional");
                 reqDTO.setObjetivo(req.getObjetivo());
                 reqDTO.setDetalle(req.getDetalle());
                 reqDTO.setCargoImpactado(req.getCargoImpactado());
-                return reqDTO;
-            }).collect(Collectors.toList());
-            dto.setRequerimientos(reqsDTO);
+                reqDTO.setNumeroOrden(req.getNumeroOrden());
+                if (req.getEstado() != null) {
+                    reqDTO.setEstadoNombre(req.getEstado().getNombre());
+                }
+                requerimientosDTO.add(reqDTO);
+
+                if (req.getTipoRequerimiento() == 0) {
+                    funcionales++;
+                } else {
+                    noFuncionales++;
+                }
+            }
+            dto.setRequerimientosFuncionales(funcionales);
+            dto.setRequerimientosNoFuncionales(noFuncionales);
+            dto.setTotalRequerimientos(requerimientosDTO.size());
         }
 
+        dto.setRequerimientos(requerimientosDTO);
         return dto;
     }
 }

@@ -5,48 +5,29 @@ import com.asmetsalud.nexus.solicitudes.dto.SolicitudResponseDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import java.time.LocalDate;
 import java.util.List;
 
 public interface SolicitudService {
 
-    // ============================================================
-    // CRUD
-    // ============================================================
-
+    // CREATE
     SolicitudResponseDTO crearSolicitud(SolicitudRequestDTO request);
 
-    SolicitudResponseDTO actualizarSolicitud(Long id, SolicitudRequestDTO request);
-
-    void eliminarSolicitud(Long id);
-
-    SolicitudResponseDTO obtenerSolicitudPorId(Long id);
-
-    SolicitudResponseDTO obtenerSolicitudPorCodigo(String codigo);
-
+    // READ
     Page<SolicitudResponseDTO> obtenerTodasLasSolicitudes(Pageable pageable);
-
+    SolicitudResponseDTO obtenerSolicitudPorId(Long id);
+    SolicitudResponseDTO obtenerSolicitudPorCodigo(String codigo);
     List<SolicitudResponseDTO> obtenerSolicitudesPorEmpleado(String documento);
-
     List<SolicitudResponseDTO> obtenerSolicitudesPorEstado(Long estadoId);
 
-    List<SolicitudResponseDTO> obtenerSolicitudesPorRangoFechas(
-            LocalDate fechaInicio,
-            LocalDate fechaFin
-    );
+    // UPDATE
+    SolicitudResponseDTO actualizarSolicitud(Long id, SolicitudRequestDTO request);
+    SolicitudResponseDTO cambiarEstadoSolicitud(Long id, Long nuevoEstadoId, String observacion);
+    SolicitudResponseDTO actualizarPrioridad(Long id, String prioridad);
 
-    SolicitudResponseDTO cambiarEstadoSolicitud(
-            Long id,
-            Long nuevoEstadoId,
-            String observacion
-    );
+    // DELETE
+    void eliminarSolicitud(Long id);
 
+    // UTILS
     Long contarSolicitudesPorEstado(Long estadoId);
-
-    // ============================================================
-    // PDF
-    // ============================================================
-
     byte[] generarPDF(Long id);
-
 }

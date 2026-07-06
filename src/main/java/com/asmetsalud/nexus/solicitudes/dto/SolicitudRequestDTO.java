@@ -48,6 +48,8 @@ public class SolicitudRequestDTO {
     @NotNull(message = "El ID del estado es obligatorio")
     private Long estadoId;
 
+    private String prioridad;
+
     private String observaciones;
 
     @NotBlank(message = "El impacto es obligatorio")

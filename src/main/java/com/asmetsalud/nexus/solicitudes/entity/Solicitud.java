@@ -62,6 +62,9 @@ public class Solicitud {
     @JoinColumn(name = "estado_id", nullable = false)
     private EstadoSolicitud estado;
 
+    @Column(name = "prioridad", nullable = false, length = 20)
+    private String prioridad = "media";
+
     @Column(name = "observaciones", columnDefinition = "TEXT")
     private String observaciones;
 
@@ -95,6 +98,9 @@ public class Solicitud {
         updatedAt = LocalDateTime.now();
         if (fechaCreacion == null) {
             fechaCreacion = LocalDate.now();
+        }
+        if (prioridad == null || prioridad.isEmpty()) {
+            prioridad = "media";
         }
     }
 

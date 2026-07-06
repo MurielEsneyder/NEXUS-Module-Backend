@@ -159,6 +159,18 @@ public class SolicitudController {
     }
 
     // ============================================================
+    // UPDATE - Actualizar prioridad
+    // ============================================================
+    @PatchMapping("/{id}/prioridad")
+    public ResponseEntity<SolicitudResponseDTO> actualizarPrioridad(
+            @PathVariable Long id,
+            @RequestParam String prioridad) {
+        log.info("PATCH /solicitudes/{}/prioridad - Actualizando prioridad a {}", id, prioridad);
+        SolicitudResponseDTO response = solicitudService.actualizarPrioridad(id, prioridad);
+        return ResponseEntity.ok(response);
+    }
+
+    // ============================================================
     // DELETE - Eliminar solicitud
     // ============================================================
     @DeleteMapping("/{id}")
@@ -230,6 +242,7 @@ public class SolicitudController {
         dto.setNombre(estado.getNombre());
         dto.setColor(estado.getColor());
         dto.setFase(estado.getFase());
+        dto.setActivo(estado.getActivo());
         return dto;
     }
 
@@ -238,6 +251,7 @@ public class SolicitudController {
         dto.setId(tipo.getId());
         dto.setCodigo(tipo.getCodigo());
         dto.setNombre(tipo.getNombre());
+        dto.setActivo(tipo.getActivo());
         return dto;
     }
 }

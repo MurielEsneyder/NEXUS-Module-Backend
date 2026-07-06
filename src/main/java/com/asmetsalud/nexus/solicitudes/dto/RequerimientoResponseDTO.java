@@ -10,8 +10,11 @@ import lombok.NoArgsConstructor;
 public class RequerimientoResponseDTO {
     private Long id;
     private String codigo;
-    private Short tipoRequerimiento; // 0 = Funcional, 1 = No Funcional
+    private Short tipoRequerimiento;
+    private String tipoRequerimientoNombre;
     private String objetivo;
     private String detalle;
     private String cargoImpactado;
+    private Integer numeroOrden;
+    private String estadoNombre;
 }

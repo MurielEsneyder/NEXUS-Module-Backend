@@ -38,9 +38,6 @@ public class Requerimiento {
     @Column(name = "detalle", nullable = false, columnDefinition = "TEXT")
     private String detalle;
 
-    // ============================================================
-    // NUEVO CAMPO
-    // ============================================================
     @Column(name = "cargo_impactado", length = 100)
     private String cargoImpactado;
 
@@ -66,6 +63,9 @@ public class Requerimiento {
         updatedAt = LocalDateTime.now();
         if (fechaIngreso == null) {
             fechaIngreso = LocalDate.now();
+        }
+        if (estado == null) {
+            // Estado por defecto: Borrador (ID 1)
         }
     }
 

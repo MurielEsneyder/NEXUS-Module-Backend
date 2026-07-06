@@ -45,5 +45,8 @@ public class Auditoria {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        if (fase == null) {
+            fase = 1;
+        }
     }
 }

@@ -26,6 +26,7 @@ public class SolicitudResponseDTO {
     private Long macroprocesoId;
     private TipoSolicitudDTO tipoSolicitud;
     private EstadoSolicitudDTO estado;
+    private String prioridad;
     private String observaciones;
     private String impacto;
     private String pdfNombre;
@@ -35,9 +36,5 @@ public class SolicitudResponseDTO {
     private Integer totalRequerimientos;
     private Integer requerimientosFuncionales;
     private Integer requerimientosNoFuncionales;
-
-    // ============================================================
-    // NUEVO: Lista de requerimientos para el PDF
-    // ============================================================
     private List<RequerimientoResponseDTO> requerimientos;
 }

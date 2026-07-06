@@ -13,4 +13,5 @@ public class EstadoSolicitudDTO {
     private String nombre;
     private String color;
     private Integer fase;
+    private Boolean activo;
 }
