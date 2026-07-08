@@ -49,7 +49,7 @@ public class SolicitudController {
     // ============================================================
     @GetMapping
     public ResponseEntity<Page<SolicitudResponseDTO>> obtenerTodasLasSolicitudes(
-            @PageableDefault(size = 10, sort = "fechaCreacion", direction = Sort.Direction.DESC) Pageable pageable) {
+            @PageableDefault(size = 10, sort = {"fechaCreacion", "id"}, direction = Sort.Direction.DESC) Pageable pageable) {
         log.info("GET /solicitudes - Obteniendo todas las solicitudes");
         Page<SolicitudResponseDTO> response = solicitudService.obtenerTodasLasSolicitudes(pageable);
         return ResponseEntity.ok(response);
