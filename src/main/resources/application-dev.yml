@@ -19,6 +19,18 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: aprendiz1.desarrollo@asmetsalud.com
+    password: ylrkjvvsgdjujcxy
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
 server:
   port: 8090
   servlet:
