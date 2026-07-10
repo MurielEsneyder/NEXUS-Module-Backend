@@ -191,6 +191,28 @@ public class SolicitudController {
     }
 
     // ============================================================
+    // READ - Historial de cambios de una solicitud
+    // ============================================================
+    @GetMapping("/{id}/historial")
+    public ResponseEntity<List<com.asmetsalud.nexus.solicitudes.dto.AuditoriaDTO>> obtenerHistorialCambios(@PathVariable Long id) {
+        log.info("📜 GET /solicitudes/{}/historial - Obteniendo historial de cambios", id);
+        List<com.asmetsalud.nexus.solicitudes.dto.AuditoriaDTO> historial = solicitudService.obtenerHistorialCambios(id);
+        return ResponseEntity.ok(historial);
+    }
+
+    // ============================================================
+    // READ - Mis solicitudes (por documento del empleado, paginado)
+    // ============================================================
+    @GetMapping("/mis-solicitudes/{documento}")
+    public ResponseEntity<Page<SolicitudResponseDTO>> obtenerMisSolicitudes(
+            @PathVariable String documento,
+            @PageableDefault(size = 10, sort = {"fechaCreacion"}, direction = Sort.Direction.DESC) Pageable pageable) {
+        log.info("📋 GET /solicitudes/mis-solicitudes/{} - Obteniendo solicitudes del empleado", documento);
+        Page<SolicitudResponseDTO> response = solicitudService.obtenerSolicitudesPorEmpleadoPaginado(documento, pageable);
+        return ResponseEntity.ok(response);
+    }
+
+    // ============================================================
     // PDF - Descargar PDF
     // ============================================================
     @GetMapping("/{id}/pdf")

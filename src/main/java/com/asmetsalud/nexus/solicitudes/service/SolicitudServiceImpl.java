@@ -126,6 +126,24 @@ public class SolicitudServiceImpl implements SolicitudService {
     }
 
     @Override
+    public List<AuditoriaDTO> obtenerHistorialCambios(Long solicitudId) {
+        log.info("📜 Obteniendo historial de cambios para solicitud ID: {}", solicitudId);
+        Solicitud solicitud = solicitudRepository.findById(solicitudId)
+                .orElseThrow(() -> new RuntimeException("Solicitud no encontrada con ID: " + solicitudId));
+        List<Auditoria> auditorias = auditoriaRepository.findBySolicitudIdOrderByCreatedAtDesc(solicitudId);
+        return auditorias.stream()
+                .map(a -> convertirAuditoriaADTO(a, solicitud.getCodigo()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public Page<SolicitudResponseDTO> obtenerSolicitudesPorEmpleadoPaginado(String documento, Pageable pageable) {
+        log.info("📋 Obteniendo solicitudes paginadas del empleado: {}", documento);
+        return solicitudRepository.findByEmpleadoDocumentoOrderByFechaCreacionDesc(documento, pageable)
+                .map(this::convertirADTOConRequerimientos);
+    }
+
+    @Override
     public SolicitudResponseDTO actualizarSolicitud(Long id, SolicitudRequestDTO request) {
         log.info("✏️ Actualizando solicitud ID: {}", id);
 
@@ -372,6 +390,51 @@ public class SolicitudServiceImpl implements SolicitudService {
         }
 
         dto.setRequerimientos(requerimientosDTO);
+
+        // Auditorías
+        List<AuditoriaDTO> auditoriasDTO = new ArrayList<>();
+        if (solicitud.getAuditorias() != null) {
+            for (Auditoria auditoria : solicitud.getAuditorias()) {
+                auditoriasDTO.add(convertirAuditoriaADTO(auditoria, solicitud.getCodigo()));
+            }
+        }
+        dto.setAuditorias(auditoriasDTO);
+
+        return dto;
+    }
+
+    private AuditoriaDTO convertirAuditoriaADTO(Auditoria auditoria, String codigoSolicitud) {
+        AuditoriaDTO dto = new AuditoriaDTO();
+        dto.setId(auditoria.getId());
+        dto.setSolicitudId(auditoria.getSolicitud().getId());
+        dto.setCodigoSolicitud(codigoSolicitud);
+        dto.setObservacion(auditoria.getObservacion());
+        dto.setFase(auditoria.getFase());
+        dto.setUsuarioRegistro(auditoria.getUsuarioRegistro());
+        dto.setCreatedAt(auditoria.getCreatedAt());
+
+        if (auditoria.getEstadoAnterior() != null) {
+            EstadoSolicitudDTO estadoAntDTO = new EstadoSolicitudDTO();
+            estadoAntDTO.setId(auditoria.getEstadoAnterior().getId());
+            estadoAntDTO.setCodigo(auditoria.getEstadoAnterior().getCodigo());
+            estadoAntDTO.setNombre(auditoria.getEstadoAnterior().getNombre());
+            estadoAntDTO.setColor(auditoria.getEstadoAnterior().getColor());
+            estadoAntDTO.setFase(auditoria.getEstadoAnterior().getFase());
+            estadoAntDTO.setActivo(auditoria.getEstadoAnterior().getActivo());
+            dto.setEstadoAnterior(estadoAntDTO);
+        }
+
+        if (auditoria.getEstadoNuevo() != null) {
+            EstadoSolicitudDTO estadoNuevoDTO = new EstadoSolicitudDTO();
+            estadoNuevoDTO.setId(auditoria.getEstadoNuevo().getId());
+            estadoNuevoDTO.setCodigo(auditoria.getEstadoNuevo().getCodigo());
+            estadoNuevoDTO.setNombre(auditoria.getEstadoNuevo().getNombre());
+            estadoNuevoDTO.setColor(auditoria.getEstadoNuevo().getColor());
+            estadoNuevoDTO.setFase(auditoria.getEstadoNuevo().getFase());
+            estadoNuevoDTO.setActivo(auditoria.getEstadoNuevo().getActivo());
+            dto.setEstadoNuevo(estadoNuevoDTO);
+        }
+
         return dto;
     }
 }

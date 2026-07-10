@@ -37,4 +37,5 @@ public class SolicitudResponseDTO {
     private Integer requerimientosFuncionales;
     private Integer requerimientosNoFuncionales;
     private List<RequerimientoResponseDTO> requerimientos;
+    private List<AuditoriaDTO> auditorias;
 }
