@@ -1,5 +1,6 @@
 package com.asmetsalud.nexus.solicitudes.service;
 
+import com.asmetsalud.nexus.solicitudes.dto.AuditoriaDTO;
 import com.asmetsalud.nexus.solicitudes.dto.SolicitudRequestDTO;
 import com.asmetsalud.nexus.solicitudes.dto.SolicitudResponseDTO;
 import org.springframework.data.domain.Page;
@@ -18,6 +19,10 @@ public interface SolicitudService {
     SolicitudResponseDTO obtenerSolicitudPorCodigo(String codigo);
     List<SolicitudResponseDTO> obtenerSolicitudesPorEmpleado(String documento);
     List<SolicitudResponseDTO> obtenerSolicitudesPorEstado(Long estadoId);
+
+    // READ - Historial
+    List<AuditoriaDTO> obtenerHistorialCambios(Long solicitudId);
+    Page<SolicitudResponseDTO> obtenerSolicitudesPorEmpleadoPaginado(String documento, Pageable pageable);
 
     // UPDATE
     SolicitudResponseDTO actualizarSolicitud(Long id, SolicitudRequestDTO request);
