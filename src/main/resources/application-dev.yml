@@ -1,24 +1,4 @@
 spring:
-  cloud:
-    config:
-      enabled: false
-      import-check:
-        enabled: false
-
-  datasource:
-    db2:
-      url: jdbc:postgresql://localhost:5432/database
-      username: postgres
-      password: 123321
-      driver-class-name: org.postgresql.Driver
-
-  jpa:
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-
   mail:
     host: smtp.gmail.com
     port: 587
@@ -31,16 +11,7 @@ spring:
           starttls:
             enable: true
 
-server:
-  port: 8090
-  servlet:
-    context-path: /api/v1
-
-jwt:
-  secret: miClaveSecretaSuperSeguraParaJWT123456789
-  expiration: 86400000
-
-logging:
-  level:
-    com.asmetsalud.nexus: DEBUG
-    org.hibernate.SQL: DEBUG
+  config:
+    import: optional:configserver:http://localhost:9999
+  application:
+    name: nexus
