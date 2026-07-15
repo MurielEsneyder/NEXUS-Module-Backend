@@ -1,15 +1,10 @@
 spring:
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: aprendiz.desarrollo@asmetsalud.com
-    password: pauaeloqfphlidzb
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
+  sql:
+    init:
+      mode: always
+  jpa:
+    hibernate:
+      ddl-auto: update
 
   config:
     import: optional:configserver:http://localhost:9999
