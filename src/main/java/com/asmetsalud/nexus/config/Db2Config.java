@@ -2,6 +2,7 @@ package com.asmetsalud.nexus.config;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.orm.jpa.JpaProperties;
 import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,6 +11,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
@@ -38,7 +40,8 @@ public class Db2Config {
     @Value("${spring.datasource.db2.driver-class-name}")
     private String db2DriverClassName;
 
-    @Primary  // ← Este es el principal ahora
+    // 1. Configuración del DataSource para db2
+    @Primary
     @Bean(name = "db2DataSource")
     public DataSource db2DataSource() {
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
@@ -49,17 +52,31 @@ public class Db2Config {
         return dataSource;
     }
 
-    @Primary  // ← Este es el principal ahora
+    // 2. Creador del Builder para db2 utilizando propiedades oficiales de Spring
+    @Primary
+    @Bean(name = "db2EntityManagerFactoryBuilder")
+    public EntityManagerFactoryBuilder entityManagerFactoryBuilder(JpaProperties jpaProperties) {
+        HibernateJpaVendorAdapter adapter = new HibernateJpaVendorAdapter();
+        adapter.setShowSql(jpaProperties.isShowSql());
+        adapter.setDatabasePlatform(jpaProperties.getDatabasePlatform());
+
+        return new EntityManagerFactoryBuilder(adapter, jpaProperties.getProperties(), null);
+    }
+
+    // 3. Configuración de EntityManagerFactory para db2
+    @Primary
     @Bean(name = "db2EntityManagerFactory")
     public LocalContainerEntityManagerFactoryBean db2EntityManagerFactory(
-            EntityManagerFactoryBuilder builder,
+            @Qualifier("db2EntityManagerFactoryBuilder") EntityManagerFactoryBuilder builder,
             @Qualifier("db2DataSource") DataSource dataSource) {
 
         Map<String, Object> properties = new HashMap<>();
         properties.put("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
         properties.put("hibernate.show_sql", "true");
         properties.put("hibernate.format_sql", "true");
-        properties.put("hibernate.hbm2ddl.auto", "validate");
+
+        // <<< CAMBIADO DE "validate" A "update" >>>
+        //properties.put("hibernate.hbm2ddl.auto", "update"); // Asegura que se actualicen las tablas en db2
 
         return builder
                 .dataSource(dataSource)
@@ -69,7 +86,8 @@ public class Db2Config {
                 .build();
     }
 
-    @Primary  // ← Este es el principal ahora
+    // 4. Configuración de TransactionManager para db2
+    @Primary
     @Bean(name = "db2TransactionManager")
     public PlatformTransactionManager db2TransactionManager(
             @Qualifier("db2EntityManagerFactory") LocalContainerEntityManagerFactoryBean db2EntityManagerFactory) {

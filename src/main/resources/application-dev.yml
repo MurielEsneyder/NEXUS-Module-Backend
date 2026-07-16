@@ -1,46 +1,12 @@
 spring:
-  cloud:
-    config:
-      enabled: false
-      import-check:
-        enabled: false
-
-  datasource:
-    db2:
-      url: jdbc:postgresql://localhost:8822/test_db
-      username: postgres
-      password: 123454321
-      driver-class-name: org.postgresql.Driver
-
+  sql:
+    init:
+      mode: always
   jpa:
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
 
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: aprendiz1.desarrollo@asmetsalud.com
-    password: ylrkjvvsgdjujcxy
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-
-server:
-  port: 8090
-  servlet:
-    context-path: /api/v1
-
-jwt:
-  secret: miClaveSecretaSuperSeguraParaJWT123456789
-  expiration: 86400000
-
-logging:
-  level:
-    com.asmetsalud.nexus: DEBUG
-    org.hibernate.SQL: DEBUG
+  config:
+    import: optional:configserver:http://localhost:9999
+  application:
+    name: nexus
