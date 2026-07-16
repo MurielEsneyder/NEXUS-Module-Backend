@@ -22,7 +22,7 @@ import java.util.Map;
 @Configuration
 @EnableTransactionManagement
 @EnableJpaRepositories(
-        basePackages = "com.asmetsalud.nexus.solicitudes.repository",  // ← Repositorios de Solicitudes
+        basePackages = "com.asmetsalud.nexus.db1.repository",  // ← Repositorios legacy Oracle
         entityManagerFactoryRef = "db2EntityManagerFactory",
         transactionManagerRef = "db2TransactionManager"
 )
@@ -41,7 +41,6 @@ public class Db2Config {
     private String db2DriverClassName;
 
     // 1. Configuración del DataSource para db2
-    @Primary
     @Bean(name = "db2DataSource")
     public DataSource db2DataSource() {
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
@@ -53,7 +52,6 @@ public class Db2Config {
     }
 
     // 2. Creador del Builder para db2 utilizando propiedades oficiales de Spring
-    @Primary
     @Bean(name = "db2EntityManagerFactoryBuilder")
     public EntityManagerFactoryBuilder entityManagerFactoryBuilder(JpaProperties jpaProperties) {
         HibernateJpaVendorAdapter adapter = new HibernateJpaVendorAdapter();
@@ -64,7 +62,6 @@ public class Db2Config {
     }
 
     // 3. Configuración de EntityManagerFactory para db2
-    @Primary
     @Bean(name = "db2EntityManagerFactory")
     public LocalContainerEntityManagerFactoryBean db2EntityManagerFactory(
             @Qualifier("db2EntityManagerFactoryBuilder") EntityManagerFactoryBuilder builder,
@@ -80,14 +77,13 @@ public class Db2Config {
 
         return builder
                 .dataSource(dataSource)
-                .packages("com.asmetsalud.nexus.solicitudes.entity")  // ← Entidades de Solicitudes
+                .packages("com.asmetsalud.nexus.db1.model")  // ← Entidades legacy Oracle
                 .persistenceUnit("db2")
                 .properties(properties)
                 .build();
     }
 
     // 4. Configuración de TransactionManager para db2
-    @Primary
     @Bean(name = "db2TransactionManager")
     public PlatformTransactionManager db2TransactionManager(
             @Qualifier("db2EntityManagerFactory") LocalContainerEntityManagerFactoryBean db2EntityManagerFactory) {
