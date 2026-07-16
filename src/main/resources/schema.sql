@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS sd_requerimiento (
     codigo             VARCHAR(10)  NOT NULL,
     tipo_requerimiento SMALLINT     NOT NULL,
     objetivo           VARCHAR(200) NOT NULL,
-    detalle            TEXT         NOT NULL,  //varchar 20000
+    detalle            TEXT         NOT NULL,  --varchar 20000
     
     -- ============================================================
     -- ✅ NUEVO CAMPO: cargo_impactado
@@ -200,7 +200,7 @@ CREATE TABLE IF NOT EXISTS sd_auditoria (
     solicitud_id       BIGINT       NOT NULL REFERENCES sd_solicitud(id) ON DELETE CASCADE,
     estado_anterior_id BIGINT       REFERENCES sd_estado_solicitud(id),
     estado_nuevo_id    BIGINT       NOT NULL REFERENCES sd_estado_solicitud(id),
-    observacion        TEXT,  // Observación del cambio de estado VARCHAR 20000
+    observacion        TEXT,  -- Observación del cambio de estado VARCHAR 20000
     fase               INTEGER      NOT NULL DEFAULT 1,
     usuario_registro   VARCHAR(100) NOT NULL,
     created_at         TIMESTAMP    NOT NULL DEFAULT NOW()
@@ -234,29 +234,6 @@ CREATE INDEX IF NOT EXISTS idx_sd_not_solicitud      ON sd_notificacion(solicitu
 CREATE INDEX IF NOT EXISTS idx_sd_not_destinatario   ON sd_notificacion(destinatario);
 CREATE INDEX IF NOT EXISTS idx_sd_not_enviado        ON sd_notificacion(enviado);
 CREATE INDEX IF NOT EXISTS idx_sd_not_tipo           ON sd_notificacion(tipo);
-
-
--- ============================================================
--- 9. FUNCIONES Y TRIGGERS
--- ============================================================
-
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_update_solicitud_updated_at
-    BEFORE UPDATE ON sd_solicitud
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER trg_update_requerimiento_updated_at
-    BEFORE UPDATE ON sd_requerimiento
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
 
 
 -- ============================================================
