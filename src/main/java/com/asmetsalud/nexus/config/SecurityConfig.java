@@ -36,8 +36,11 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html",
                                 "/actuator/health",
-                                "/colaborador/actual",    // ← Agregar esta línea
-                                "/colaborador/test"       // ← Agregar esta línea (opcional)
+                                // Permitir endpoints de colaborador (con y sin /api)
+                                "/api/colaborador/actual",
+                                "/api/colaborador/**",
+                                "/colaborador/actual",
+                                "/colaborador/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

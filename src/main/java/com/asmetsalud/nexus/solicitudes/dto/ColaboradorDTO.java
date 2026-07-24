@@ -13,4 +13,6 @@ public class ColaboradorDTO {
     private String cargo;
     private String sede;
     private String documento;
+    private Long idPersona;
+    private String codUser;
 }

@@ -1,86 +1,151 @@
 package com.asmetsalud.nexus.solicitudes.service;
 
-import com.asmetsalud.nexus.config.JwtConfig;
 import com.asmetsalud.nexus.solicitudes.dto.ColaboradorDTO;
-import io.jsonwebtoken.Claims;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
+
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ColaboradorService {
 
-    private final JwtConfig jwtConfig;
+    @Qualifier("db2JdbcTemplate")
+    private final JdbcTemplate db2JdbcTemplate;
 
     public ColaboradorDTO obtenerColaboradorActual() {
-        log.info("🔍 Obteniendo datos del colaborador");
+        log.info("🔍 Obteniendo datos del colaborador desde BD Oracle");
 
         try {
-            String username = null;
+            // Obtener username del contexto de seguridad
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String username = auth.getName();
 
-            // ============================================================
-            // OBTENER TOKEN DEL REQUEST
-            // ============================================================
-            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-            if (attributes != null) {
-                HttpServletRequest request = attributes.getRequest();
-                String authHeader = request.getHeader("Authorization");
+            log.info("👤 Username obtenido: {}", username);
 
-                if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                    String token = authHeader.substring(7);
-                    log.info("🔑 Token recibido");
-
-                    try {
-                        Claims claims = jwtConfig.parseJwt(token);
-                        username = claims.getSubject();
-                        log.info("👤 Username extraído del token: {}", username);
-                    } catch (Exception e) {
-                        log.error("❌ Error al parsear token: {}", e.getMessage());
-                    }
-                } else {
-                    log.warn("⚠️ No hay token en la petición");
+            // Intentar extraer email y documento desde los claims del token
+            String email = username;
+            String documento = username;
+            if (auth != null && auth.getDetails() instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> claims = (Map<String, Object>) auth.getDetails();
+                if (claims.containsKey("email")) {
+                    email = (String) claims.get("email");
+                } else if (claims.containsKey("correo")) {
+                    email = (String) claims.get("correo");
+                }
+                if (claims.containsKey("documento")) {
+                    documento = (String) claims.get("documento");
+                } else if (claims.containsKey("nroIdentificacion")) {
+                    documento = (String) claims.get("nroIdentificacion");
+                } else if (claims.containsKey("numDoc")) {
+                    documento = (String) claims.get("numDoc");
                 }
             }
 
-            // ============================================================
-            // FALLBACK: Usar "julian.calambas"
-            // ============================================================
-            if (username == null || username.isEmpty()) {
-                log.warn("⚠️ Usando fallback: julian.calambas");
-                username = "julian.calambas";
+            // Extraer prefijo del email para búsquedas de dominio flexible (ej: .com vs .org.co)
+            String emailPrefix = email;
+            if (email != null && email.contains("@")) {
+                emailPrefix = email.substring(0, email.indexOf("@"));
             }
 
+            log.info("🔍 Parámetros de consulta - Email: {}, EmailPrefix: {}, Documento: {}, CodUser: {}", email, emailPrefix, documento, username);
+
             // ============================================================
-            // CREAR DTO
+            // CONSULTAR BASE DE DATOS ORACLE
+            // ============================================================
+            String sql = """
+                SELECT DISTINCT
+                    p.ID_PERSONA,
+                    TRIM(NVL(p.NOMBRE, '') || ' ' || 
+                         NVL(p.PRIMER_APELLIDO, '') || ' ' || 
+                         NVL(p.SEGUNDO_APELLIDO, '')) AS NOMBRE_COMPLETO,
+                    p.EMAIL AS CORREO,
+                    p.NOR_IDENTIFICACION AS IDENTIFICACION,
+                    e.COD_USER,
+                    c.CARGO_NOMBRE AS CARGO,
+                    s.NOMBRE_SEDE AS SEDE
+                FROM PAR_PERSONA p
+                LEFT JOIN PAR_EMPLEADO_EPS e ON p.ID_PERSONA = e.ID_PERSONA
+                LEFT JOIN PAR_CARGO c ON e.ID_CARGO = c.ID_CARGO
+                LEFT JOIN PAR_SEDE s ON e.ID_SEDE = s.ID_SEDE
+                WHERE p.EMAIL = ?
+                   OR p.EMAIL LIKE ? || '@%'
+                   OR p.NOR_IDENTIFICACION = ?
+                   OR e.COD_USER = ?
+            """;
+
+            Map<String, Object> result = db2JdbcTemplate.queryForMap(sql, email, emailPrefix, documento, username);
+
+            // ============================================================
+            // CREAR DTO CON DATOS DE LA BD
             // ============================================================
             ColaboradorDTO dto = new ColaboradorDTO();
-            dto.setNombreCompleto(username);
-            dto.setEmail(username + "@asmetsalud.com");
-            dto.setCargo("Colaborador");
-            dto.setSede("Sede Principal");
-            dto.setDocumento(null);
+            dto.setNombreCompleto((String) result.get("NOMBRE_COMPLETO"));
+            dto.setEmail((String) result.get("CORREO"));
+            dto.setDocumento((String) result.get("IDENTIFICACION"));
+            dto.setCargo((String) result.get("CARGO"));
+            dto.setSede((String) result.get("SEDE"));
+            dto.setIdPersona(result.get("ID_PERSONA") != null ? ((Number) result.get("ID_PERSONA")).longValue() : null);
+            dto.setCodUser((String) result.get("COD_USER"));
 
-            log.info("✅ Datos devueltos: {}", dto);
+            log.info("✅ Datos obtenidos de BD: {} - {}", dto.getNombreCompleto(), dto.getEmail());
             return dto;
 
         } catch (Exception e) {
-            log.error("❌ Error: {}", e.getMessage());
+            log.error("❌ Error consultando BD Oracle: ", e);
+            throw new RuntimeException("Error al consultar datos de colaborador en BD Oracle: " + e.getMessage(), e);
+        }
+    }
+
+    private ColaboradorDTO obtenerDatosDesdeToken() {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null) {
+                return crearFallback();
+            }
+            String username = auth.getName();
+
+            ColaboradorDTO dto = new ColaboradorDTO();
+            if (auth.getDetails() instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> claims = (Map<String, Object>) auth.getDetails();
+                dto.setNombreCompleto((String) claims.getOrDefault("nombreCompleto", username));
+                dto.setEmail((String) claims.getOrDefault("email", username + "@asmetsalud.com"));
+                dto.setDocumento((String) claims.getOrDefault("documento", ""));
+                dto.setCargo((String) claims.getOrDefault("cargo", "Colaborador"));
+                dto.setSede((String) claims.getOrDefault("sede", "Sede Principal"));
+            } else {
+                dto.setNombreCompleto(username);
+                dto.setEmail(username + "@asmetsalud.com");
+                dto.setCargo("Colaborador");
+                dto.setSede("Sede Principal");
+                dto.setDocumento("");
+            }
+
+            log.info("✅ Usando datos del token: {}", dto);
+            return dto;
+
+        } catch (Exception e) {
+            log.error("❌ Error obteniendo datos del token: ", e);
             return crearFallback();
         }
     }
 
     private ColaboradorDTO crearFallback() {
+        log.warn("⚠️ Creando fallback final");
         ColaboradorDTO dto = new ColaboradorDTO();
-        dto.setNombreCompleto("julian.calambas");
-        dto.setEmail("julian.calambas@asmetsalud.com");
-        dto.setCargo("Colaborador");
-        dto.setSede("Sede Principal");
-        dto.setDocumento(null);
+        dto.setNombreCompleto("Usuario");
+        dto.setEmail("usuario@asmetsalud.com");
+        dto.setCargo("Cargo no disponible");
+        dto.setSede("Sede no disponible");
+        dto.setDocumento("");
         return dto;
     }
 }

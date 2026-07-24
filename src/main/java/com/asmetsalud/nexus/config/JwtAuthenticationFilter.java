@@ -1,4 +1,5 @@
 package com.asmetsalud.nexus.config;
+import io.jsonwebtoken.Claims;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -38,14 +39,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             final String jwt = authHeader.substring(7);
-            final String username = jwtConfig.getUsernameFromToken(jwt);
+            final Claims claims = jwtConfig.parseJwt(jwt);
+            final String username = claims.getSubject();
             log.info("👤 Username extraído del token: {}", username);
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(username, null, new ArrayList<>());
 
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                authToken.setDetails(claims);
                 SecurityContextHolder.getContext().setAuthentication(authToken);
                 log.info("✅ Usuario autenticado correctamente: {}", username);
             }

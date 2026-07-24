@@ -13,7 +13,7 @@ import java.util.Date;
 @Configuration
 public class JwtConfig {
 
-    @Value("c0225b38-f347-488f-97e7-661e6ffbcc6d")
+    @Value("${jwt.secret:c0225b38-f347-488f-97e7-661e6ffbcc6d}")
     private String secretKey;
 
     @Value("${jwt.expiration:86400000}")
