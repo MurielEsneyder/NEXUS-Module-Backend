@@ -29,9 +29,8 @@ public class ColaboradorService {
 
             log.info("👤 Username obtenido: {}", username);
 
-            // Intentar extraer email y documento desde los claims del token
+            // Intentar extraer email desde los claims del token
             String email = username;
-            String documento = username;
             if (auth != null && auth.getDetails() instanceof Map) {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> claims = (Map<String, Object>) auth.getDetails();
@@ -40,31 +39,24 @@ public class ColaboradorService {
                 } else if (claims.containsKey("correo")) {
                     email = (String) claims.get("correo");
                 }
-                if (claims.containsKey("documento")) {
-                    documento = (String) claims.get("documento");
-                } else if (claims.containsKey("nroIdentificacion")) {
-                    documento = (String) claims.get("nroIdentificacion");
-                } else if (claims.containsKey("numDoc")) {
-                    documento = (String) claims.get("numDoc");
-                }
             }
 
-            // Extraer prefijo del email para búsquedas de dominio flexible (ej: .com vs .org.co)
+            // Extraer prefijo del email para búsqueda con LIKE (ej: jhojan.muriel@%)
             String emailPrefix = email;
             if (email != null && email.contains("@")) {
                 emailPrefix = email.substring(0, email.indexOf("@"));
             }
 
-            log.info("🔍 Parámetros de consulta - Email: {}, EmailPrefix: {}, Documento: {}, CodUser: {}", email, emailPrefix, documento, username);
+            log.info("🔍 Buscando por email: {}@%", emailPrefix);
 
             // ============================================================
-            // CONSULTAR BASE DE DATOS ORACLE
+            // CONSULTAR BASE DE DATOS ORACLE - BUSCANDO POR EMAIL
             // ============================================================
             String sql = """
-                SELECT DISTINCT
+                SELECT
                     p.ID_PERSONA,
-                    TRIM(NVL(p.NOMBRE, '') || ' ' || 
-                         NVL(p.PRIMER_APELLIDO, '') || ' ' || 
+                    TRIM(NVL(p.NOMBRE, '') || ' ' ||
+                         NVL(p.PRIMER_APELLIDO, '') || ' ' ||
                          NVL(p.SEGUNDO_APELLIDO, '')) AS NOMBRE_COMPLETO,
                     p.EMAIL AS CORREO,
                     p.NOR_IDENTIFICACION AS IDENTIFICACION,
@@ -75,13 +67,11 @@ public class ColaboradorService {
                 LEFT JOIN PAR_EMPLEADO_EPS e ON p.ID_PERSONA = e.ID_PERSONA
                 LEFT JOIN PAR_CARGO c ON e.ID_CARGO = c.ID_CARGO
                 LEFT JOIN PAR_SEDE s ON e.ID_SEDE = s.ID_SEDE
-                WHERE p.EMAIL = ?
-                   OR p.EMAIL LIKE ? || '@%'
-                   OR p.NOR_IDENTIFICACION = ?
-                   OR e.COD_USER = ?
+                WHERE p.ESTADO <> 'R'
+                  AND p.EMAIL LIKE ? || '@%'
             """;
 
-            Map<String, Object> result = db2JdbcTemplate.queryForMap(sql, email, emailPrefix, documento, username);
+            Map<String, Object> result = db2JdbcTemplate.queryForMap(sql, emailPrefix);
 
             // ============================================================
             // CREAR DTO CON DATOS DE LA BD
