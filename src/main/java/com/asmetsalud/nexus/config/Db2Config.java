@@ -22,7 +22,7 @@ import java.util.Map;
 @Configuration
 @EnableTransactionManagement
 @EnableJpaRepositories(
-        basePackages = "com.asmetsalud.nexus.db1.repository",  // ← Repositorios legacy Oracle
+        basePackages = "com.asmetsalud.nexus.db2.repository",  // ← Repositorios Oracle
         entityManagerFactoryRef = "db2EntityManagerFactory",
         transactionManagerRef = "db2TransactionManager"
 )
@@ -77,7 +77,7 @@ public class Db2Config {
 
         return builder
                 .dataSource(dataSource)
-                .packages("com.asmetsalud.nexus.db1.model")  // ← Entidades legacy Oracle
+                .packages("com.asmetsalud.nexus.db2.model")  // ← Entidades Oracle
                 .persistenceUnit("db2")
                 .properties(properties)
                 .build();

@@ -1,0 +1,18 @@
+package com.asmetsalud.nexus.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ColaboradorDTO {
+    private String nombreCompleto;
+    private String email;
+    private String cargo;
+    private String sede;
+    private String documento;
+    private Long idPersona;
+    private String codUser;
+}

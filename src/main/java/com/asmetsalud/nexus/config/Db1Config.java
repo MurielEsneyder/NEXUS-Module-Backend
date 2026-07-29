@@ -26,7 +26,7 @@ import java.util.Map;
 @Configuration
 @EnableTransactionManagement
 @EnableJpaRepositories(
-        basePackages = "com.asmetsalud.nexus.solicitudes.repository", // Paquete de repositorios para PostgreSQL
+        basePackages = "com.asmetsalud.nexus.db1.repository", // Paquete de repositorios para PostgreSQL
         entityManagerFactoryRef = "db1EntityManagerFactory",
         transactionManagerRef = "db1TransactionManager"
 )
@@ -84,7 +84,7 @@ public class Db1Config {
 
         return builder
                 .dataSource(dataSource)
-                .packages("com.asmetsalud.nexus.solicitudes.entity") // Paquete de entidades PostgreSQL
+                .packages("com.asmetsalud.nexus.db1.model") // Paquete de entidades PostgreSQL
                 .persistenceUnit("db1")
                 .properties(properties)
                 .build();
