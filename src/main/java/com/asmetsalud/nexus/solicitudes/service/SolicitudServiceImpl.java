@@ -144,6 +144,13 @@ public class SolicitudServiceImpl implements SolicitudService {
     }
 
     @Override
+    public Page<SolicitudResponseDTO> obtenerSolicitudesPorCorreoPaginado(String correo, Pageable pageable) {
+        log.info("📋 Obteniendo solicitudes paginadas del empleado por correo: {}", correo);
+        return solicitudRepository.findByEmpleadoCorreoOrderByFechaCreacionDesc(correo, pageable)
+                .map(this::convertirADTOConRequerimientos);
+    }
+
+    @Override
     public SolicitudResponseDTO actualizarSolicitud(Long id, SolicitudRequestDTO request) {
         log.info("✏️ Actualizando solicitud ID: {}", id);
 

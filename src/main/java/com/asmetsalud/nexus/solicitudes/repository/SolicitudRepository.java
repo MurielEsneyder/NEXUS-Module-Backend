@@ -19,6 +19,8 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
 
     Page<Solicitud> findByEmpleadoDocumentoOrderByFechaCreacionDesc(String empleadoDocumento, Pageable pageable);
 
+    Page<Solicitud> findByEmpleadoCorreoOrderByFechaCreacionDesc(String empleadoCorreo, Pageable pageable);
+
     List<Solicitud> findByEstadoId(Long estadoId);
 
     @Query("SELECT COUNT(s) FROM Solicitud s WHERE s.estado.id = ?1")

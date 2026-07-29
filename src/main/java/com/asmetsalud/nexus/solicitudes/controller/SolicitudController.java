@@ -305,6 +305,18 @@ public class SolicitudController {
     }
 
     // ============================================================
+    // READ - Mis solicitudes (por correo del empleado, paginado)
+    // ============================================================
+    @GetMapping("/mis-solicitudes/correo/{correo}")
+    public ResponseEntity<Page<SolicitudResponseDTO>> obtenerMisSolicitudesPorCorreo(
+            @PathVariable String correo,
+            @PageableDefault(size = 100, sort = {"fechaCreacion"}, direction = Sort.Direction.DESC) Pageable pageable) {
+        log.info("📋 GET /solicitudes/mis-solicitudes/correo/{} - Obteniendo solicitudes del empleado por correo", correo);
+        Page<SolicitudResponseDTO> response = solicitudService.obtenerSolicitudesPorCorreoPaginado(correo, pageable);
+        return ResponseEntity.ok(response);
+    }
+
+    // ============================================================
     // PDF - Descargar PDF
     // ============================================================
     @GetMapping("/{id}/pdf")

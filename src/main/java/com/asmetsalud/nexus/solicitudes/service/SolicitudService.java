@@ -23,6 +23,7 @@ public interface SolicitudService {
     // READ - Historial
     List<AuditoriaDTO> obtenerHistorialCambios(Long solicitudId);
     Page<SolicitudResponseDTO> obtenerSolicitudesPorEmpleadoPaginado(String documento, Pageable pageable);
+    Page<SolicitudResponseDTO> obtenerSolicitudesPorCorreoPaginado(String correo, Pageable pageable);
 
     // UPDATE
     SolicitudResponseDTO actualizarSolicitud(Long id, SolicitudRequestDTO request);
