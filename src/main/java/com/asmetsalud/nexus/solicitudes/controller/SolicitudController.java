@@ -1,9 +1,17 @@
 package com.asmetsalud.nexus.solicitudes.controller;
 
 import com.asmetsalud.nexus.solicitudes.dto.*;
+import com.asmetsalud.nexus.solicitudes.entity.Area;
+import com.asmetsalud.nexus.solicitudes.entity.Cargo;
 import com.asmetsalud.nexus.solicitudes.entity.EstadoSolicitud;
+import com.asmetsalud.nexus.solicitudes.entity.Macroproceso;
+import com.asmetsalud.nexus.solicitudes.entity.Proceso;
 import com.asmetsalud.nexus.solicitudes.entity.TipoSolicitud;
+import com.asmetsalud.nexus.solicitudes.repository.AreaRepository;
+import com.asmetsalud.nexus.solicitudes.repository.CargoRepository;
 import com.asmetsalud.nexus.solicitudes.repository.EstadoSolicitudRepository;
+import com.asmetsalud.nexus.solicitudes.repository.MacroprocesoRepository;
+import com.asmetsalud.nexus.solicitudes.repository.ProcesoRepository;
 import com.asmetsalud.nexus.solicitudes.repository.TipoSolicitudRepository;
 import com.asmetsalud.nexus.solicitudes.service.SolicitudService;
 import jakarta.validation.Valid;
@@ -32,6 +40,10 @@ public class SolicitudController {
     private final SolicitudService solicitudService;
     private final EstadoSolicitudRepository estadoSolicitudRepository;
     private final TipoSolicitudRepository tipoSolicitudRepository;
+    private final AreaRepository areaRepository;
+    private final ProcesoRepository procesoRepository;
+    private final MacroprocesoRepository macroprocesoRepository;
+    private final CargoRepository cargoRepository;
 
     // ============================================================
     // CREATE
@@ -121,6 +133,58 @@ public class SolicitudController {
                 .map(this::convertirTipoADTO)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(tiposDTO);
+    }
+
+    // ============================================================
+    // READ - Obtener todas las áreas
+    // ============================================================
+    @GetMapping("/areas")
+    public ResponseEntity<List<AreaDTO>> obtenerTodasLasAreas() {
+        log.info("GET /solicitudes/areas - Obteniendo todas las áreas");
+        List<Area> areas = areaRepository.findAll();
+        List<AreaDTO> areasDTO = areas.stream()
+                .map(this::convertirAreaADTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(areasDTO);
+    }
+
+    // ============================================================
+    // READ - Obtener todos los procesos
+    // ============================================================
+    @GetMapping("/procesos")
+    public ResponseEntity<List<ProcesoDTO>> obtenerTodosLosProcesos() {
+        log.info("GET /solicitudes/procesos - Obteniendo todos los procesos");
+        List<Proceso> procesos = procesoRepository.findAll();
+        List<ProcesoDTO> procesosDTO = procesos.stream()
+                .map(this::convertirProcesoADTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(procesosDTO);
+    }
+
+    // ============================================================
+    // READ - Obtener todas las vicepresidencias (macroprocesos)
+    // ============================================================
+    @GetMapping("/vicepresidencias")
+    public ResponseEntity<List<MacroprocesoDTO>> obtenerTodasLasVicepresidencias() {
+        log.info("GET /solicitudes/vicepresidencias - Obteniendo todos los macroprocesos/vicepresidencias");
+        List<Macroproceso> macroprocesos = macroprocesoRepository.findAll();
+        List<MacroprocesoDTO> macroprocesosDTO = macroprocesos.stream()
+                .map(this::convertirMacroprocesoADTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(macroprocesosDTO);
+    }
+
+    // ============================================================
+    // READ - Obtener todos los cargos
+    // ============================================================
+    @GetMapping("/cargos")
+    public ResponseEntity<List<CargoDTO>> obtenerTodosLosCargos() {
+        log.info("GET /solicitudes/cargos - Obteniendo todos los cargos");
+        List<Cargo> cargos = cargoRepository.findAll();
+        List<CargoDTO> cargosDTO = cargos.stream()
+                .map(this::convertirCargoADTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(cargosDTO);
     }
 
     // ============================================================
@@ -272,8 +336,44 @@ public class SolicitudController {
         TipoSolicitudDTO dto = new TipoSolicitudDTO();
         dto.setId(tipo.getId());
         dto.setCodigo(tipo.getCodigo());
-        dto.setNombre(tipo.getNombre());
+        dto.setNombre(tipo.getNombre() != null ? tipo.getNombre().toUpperCase() : null);
         dto.setActivo(tipo.getActivo());
+        return dto;
+    }
+
+    private AreaDTO convertirAreaADTO(Area area) {
+        AreaDTO dto = new AreaDTO();
+        dto.setId(area.getId());
+        dto.setCodigo(null);
+        dto.setNombre(area.getNombre());
+        dto.setActivo(true);
+        return dto;
+    }
+
+    private ProcesoDTO convertirProcesoADTO(Proceso proceso) {
+        ProcesoDTO dto = new ProcesoDTO();
+        dto.setId(proceso.getId());
+        dto.setCodigo(null);
+        dto.setNombre(proceso.getNombre());
+        dto.setActivo(true);
+        return dto;
+    }
+
+    private MacroprocesoDTO convertirMacroprocesoADTO(Macroproceso macroproceso) {
+        MacroprocesoDTO dto = new MacroprocesoDTO();
+        dto.setId(macroproceso.getId());
+        dto.setCodigo(null);
+        dto.setNombre(macroproceso.getNombre());
+        dto.setActivo(true);
+        return dto;
+    }
+
+    private CargoDTO convertirCargoADTO(Cargo cargo) {
+        CargoDTO dto = new CargoDTO();
+        dto.setId(cargo.getId());
+        dto.setCodigo(null);
+        dto.setNombre(cargo.getNombre());
+        dto.setActivo(true);
         return dto;
     }
 }
