@@ -26,7 +26,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -44,6 +47,9 @@ public class SolicitudController {
     private final ProcesoRepository procesoRepository;
     private final MacroprocesoRepository macroprocesoRepository;
     private final CargoRepository cargoRepository;
+
+    @PersistenceContext(unitName = "db1")
+    private EntityManager entityManager;
 
     // ============================================================
     // CREATE
@@ -185,6 +191,28 @@ public class SolicitudController {
                 .map(this::convertirCargoADTO)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(cargosDTO);
+    }
+
+    // ============================================================
+    // READ - Obtener todas las prioridades
+    // ============================================================
+    @GetMapping("/prioridades")
+    public ResponseEntity<List<Map<String, Object>>> obtenerTodasLasPrioridades() {
+        log.info("GET /solicitudes/prioridades - Obteniendo todas las prioridades");
+        List<Object[]> results = entityManager.createNativeQuery(
+                "SELECT lv.id_lista_valor, lv.descripcion FROM com_lista_valores lv " +
+                "JOIN com_listas_listavalores llv ON lv.id_lista_valor = llv.id_lista_valor " +
+                "WHERE llv.id_lista = 15 ORDER BY lv.orden")
+                .getResultList();
+        
+        List<Map<String, Object>> list = results.stream().map(row -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", ((Number) row[0]).longValue());
+            map.put("nombre", row[1]);
+            return map;
+        }).collect(Collectors.toList());
+        
+        return ResponseEntity.ok(list);
     }
 
     // ============================================================
