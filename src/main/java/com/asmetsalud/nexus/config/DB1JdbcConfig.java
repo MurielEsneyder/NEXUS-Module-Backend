@@ -8,7 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.sql.DataSource;
 
-// @Configuration  // ← COMENTAR ESTA LÍNEA
+// @Configuration  // ← Línea comentada
 public class DB1JdbcConfig {
     @Autowired
     @Qualifier("db1DataSource")
