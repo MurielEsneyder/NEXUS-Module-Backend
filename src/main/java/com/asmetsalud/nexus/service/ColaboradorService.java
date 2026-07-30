@@ -1,10 +1,9 @@
 package com.asmetsalud.nexus.service;
 
 import com.asmetsalud.nexus.dto.ColaboradorDTO;
+import com.asmetsalud.nexus.db2.repository.consultaColaborador.ColaboradorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -16,8 +15,7 @@ import java.util.Map;
 @Slf4j
 public class ColaboradorService {
 
-    @Qualifier("db2JdbcTemplate")
-    private final JdbcTemplate db2JdbcTemplate;
+    private final ColaboradorRepository colaboradorRepository;
 
     public ColaboradorDTO obtenerColaboradorActual() {
         log.info("🔍 Obteniendo datos del colaborador desde BD Oracle");
@@ -45,35 +43,8 @@ public class ColaboradorService {
 
             log.info("🔍 Buscando por email: {}@%", emailPrefix);
 
-            String sql = """
-                SELECT
-                    p.ID_PERSONA,
-                    TRIM(NVL(p.NOMBRE, '') || ' ' ||
-                         NVL(p.PRIMER_APELLIDO, '') || ' ' ||
-                         NVL(p.SEGUNDO_APELLIDO, '')) AS NOMBRE_COMPLETO,
-                    p.EMAIL AS CORREO,
-                    p.NOR_IDENTIFICACION AS IDENTIFICACION,
-                    e.COD_USER,
-                    c.CARGO_NOMBRE AS CARGO,
-                    s.NOMBRE_SEDE AS SEDE
-                FROM PAR_PERSONA p
-                LEFT JOIN PAR_EMPLEADO_EPS e ON p.ID_PERSONA = e.ID_PERSONA
-                LEFT JOIN PAR_CARGO c ON e.ID_CARGO = c.ID_CARGO
-                LEFT JOIN PAR_SEDE s ON e.ID_SEDE = s.ID_SEDE
-                WHERE p.ESTADO <> 'R'
-                  AND p.EMAIL LIKE ? || '@%'
-            """;
-
-            Map<String, Object> result = db2JdbcTemplate.queryForMap(sql, emailPrefix);
-
-            ColaboradorDTO dto = new ColaboradorDTO();
-            dto.setNombreCompleto((String) result.get("NOMBRE_COMPLETO"));
-            dto.setEmail((String) result.get("CORREO"));
-            dto.setDocumento((String) result.get("IDENTIFICACION"));
-            dto.setCargo((String) result.get("CARGO"));
-            dto.setSede((String) result.get("SEDE"));
-            dto.setIdPersona(result.get("ID_PERSONA") != null ? ((Number) result.get("ID_PERSONA")).longValue() : null);
-            dto.setCodUser((String) result.get("COD_USER"));
+            ColaboradorDTO dto = colaboradorRepository.buscarPorEmailPrefix(emailPrefix)
+                    .orElseThrow(() -> new RuntimeException("No se encontró el colaborador con el email prefix: " + emailPrefix));
 
             log.info("✅ Datos obtenidos de BD: {} - {}", dto.getNombreCompleto(), dto.getEmail());
             return dto;
