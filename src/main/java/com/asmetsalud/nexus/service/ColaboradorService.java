@@ -36,15 +36,14 @@ public class ColaboradorService {
                 }
             }
 
-            String emailPrefix = email;
-            if (email != null && email.contains("@")) {
-                emailPrefix = email.substring(0, email.indexOf("@"));
-            }
+            final String finalEmailPrefix = (email != null && email.contains("@")) 
+                    ? email.substring(0, email.indexOf("@")) 
+                    : email;
 
-            log.info("🔍 Buscando por email: {}@%", emailPrefix);
+            log.info("🔍 Buscando por email: {}@%", finalEmailPrefix);
 
-            ColaboradorDTO dto = colaboradorRepository.buscarPorEmailPrefix(emailPrefix)
-                    .orElseThrow(() -> new RuntimeException("No se encontró el colaborador con el email prefix: " + emailPrefix));
+            ColaboradorDTO dto = colaboradorRepository.buscarPorEmailPrefix(finalEmailPrefix)
+                    .orElseThrow(() -> new RuntimeException("No se encontró el colaborador con el email prefix: " + finalEmailPrefix));
 
             log.info("✅ Datos obtenidos de BD: {} - {}", dto.getNombreCompleto(), dto.getEmail());
             return dto;
