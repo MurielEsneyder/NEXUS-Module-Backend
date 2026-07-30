@@ -183,7 +183,7 @@ public class SolicitudServiceImpl implements SolicitudService {
         EstadoSolicitud nuevoEstado = estadoSolicitudRepository.findById(nuevoEstadoId)
                 .orElseThrow(() -> new RuntimeException("Estado no encontrado con ID: " + nuevoEstadoId));
 
-        if (estadoAnterior.getId().equals(nuevoEstado.getId())) {
+        if (estadoAnterior != null && estadoAnterior.getId().equals(nuevoEstado.getId())) {
             throw new RuntimeException("La solicitud ya se encuentra en el estado: " + estadoAnterior.getNombre());
         }
 

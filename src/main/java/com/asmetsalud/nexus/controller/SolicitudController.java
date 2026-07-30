@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/solicitudes")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "http://localhost:4200")
+
 public class SolicitudController {
 
     private final SolicitudService solicitudService;
@@ -179,19 +179,19 @@ public class SolicitudController {
         return ResponseEntity.ok(solicitudService.actualizarSolicitud(id, request));
     }
 
-    @PatchMapping("/{id}/estado")
+    @PostMapping("/{id}/estado")
     public ResponseEntity<SolicitudResponseDTO> cambiarEstadoSolicitud(
             @PathVariable Long id,
             @RequestParam Long nuevoEstadoId,
             @RequestParam(required = false) String observacion) {
-        log.info("PATCH /solicitudes/{}/estado - Cambiando estado a {}", id, nuevoEstadoId);
+        log.info("POST /solicitudes/{}/estado - Cambiando estado a {}", id, nuevoEstadoId);
         return ResponseEntity.ok(solicitudService.cambiarEstadoSolicitud(id, nuevoEstadoId, observacion));
     }
 
-    @PatchMapping("/{id}/prioridad")
+    @PostMapping("/{id}/prioridad")
     public ResponseEntity<SolicitudResponseDTO> actualizarPrioridad(
             @PathVariable Long id, @RequestParam String prioridad) {
-        log.info("PATCH /solicitudes/{}/prioridad - Actualizando prioridad a {}", id, prioridad);
+        log.info("POST /solicitudes/{}/prioridad - Actualizando prioridad a {}", id, prioridad);
         return ResponseEntity.ok(solicitudService.actualizarPrioridad(id, prioridad));
     }
 
