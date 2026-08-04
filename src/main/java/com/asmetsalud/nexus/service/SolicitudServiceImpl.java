@@ -24,11 +24,17 @@ import java.util.stream.Collectors;
 @Transactional("db1TransactionManager")
 public class SolicitudServiceImpl implements SolicitudService {
 
+    // ============================================================
+    // Correo de prueba fijo para notificaciones
+    // ============================================================
+    private static final String CORREO_PRUEBA_RECEPTOR = "aprendiz1.desarrollo@asmetsalud.com";
+
     private final SolicitudRepository solicitudRepository;
     private final RequerimientoRepository requerimientoRepository;
     private final EstadoSolicitudRepository estadoSolicitudRepository;
     private final TipoSolicitudRepository tipoSolicitudRepository;
     private final AuditoriaRepository auditoriaRepository;
+    private final NotificacionService notificacionService;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final List<String> PRIORIDADES_VALIDAS = Arrays.asList("alta", "media", "baja");
@@ -72,6 +78,24 @@ public class SolicitudServiceImpl implements SolicitudService {
         }
 
         registrarAuditoria(savedSolicitud, null, estado, "Solicitud creada");
+
+        // ============================================================
+        // Envío de correo de prueba al crear la solicitud
+        // ============================================================
+        try {
+            CorreoSolicitudDTO correoDTO = new CorreoSolicitudDTO();
+            correoDTO.setSolicitudId(savedSolicitud.getId());
+            correoDTO.setNumeroSolicitud(savedSolicitud.getCodigo());
+            correoDTO.setCorreoDestinatario(CORREO_PRUEBA_RECEPTOR);
+            correoDTO.setNombreSolicitante(savedSolicitud.getEmpleadoNombre());
+            correoDTO.setModalidad(tipo.getNombre());
+            correoDTO.setPdfBase64(null);
+            notificacionService.enviarNotificacionConPdf(correoDTO);
+            log.info("📧 Correo de prueba enviado a: {}", CORREO_PRUEBA_RECEPTOR);
+        } catch (Exception e) {
+            log.warn("⚠️ No se pudo enviar el correo de prueba para la solicitud {}: {}",
+                    savedSolicitud.getCodigo(), e.getMessage());
+        }
 
         return convertirADTOConRequerimientos(savedSolicitud);
     }

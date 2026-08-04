@@ -29,7 +29,7 @@ public class NotificacionService {
 
         try {
             Map<String, Object> payload = new HashMap<>();
-            payload.put("fromAdd", "notificaciones@asmetsalud.com");
+            payload.put("fromAdd", "notificacionestalentohumano@asmetsalud.com");
             payload.put("from", "Sistema Nexus");
             payload.put("to", Collections.singletonList(datos.getCorreoDestinatario()));
             payload.put("subject", "Solicitud de Requerimiento de Desarrollo - " + datos.getNumeroSolicitud());
@@ -51,6 +51,7 @@ public class NotificacionService {
             String jsonPayload = objectMapper.writeValueAsString(payload);
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Accept-Version", "v1");
             HttpEntity<String> request = new HttpEntity<>(jsonPayload, headers);
 
             log.info("Enviando petición HTTP a sv2-commons...");
