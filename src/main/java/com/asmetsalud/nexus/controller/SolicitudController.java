@@ -195,6 +195,19 @@ public class SolicitudController {
         return ResponseEntity.ok(solicitudService.actualizarPrioridad(id, prioridad));
     }
 
+    @PostMapping("/{id}/enviar-notificacion")
+    public ResponseEntity<String> enviarNotificacion(@PathVariable Long id) {
+        log.info("POST /solicitudes/{}/enviar-notificacion - Enviando notificación con PDF", id);
+        try {
+            solicitudService.enviarNotificacion(id);
+            return ResponseEntity.ok("Notificación enviada exitosamente");
+        } catch (Exception e) {
+            log.error("❌ Error al enviar notificación: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al enviar notificación: " + e.getMessage());
+        }
+    }
+
     // ============================================================
     // DELETE
     // ============================================================

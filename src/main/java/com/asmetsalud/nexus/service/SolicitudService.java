@@ -36,4 +36,6 @@ public interface SolicitudService {
     // UTILS
     Long contarSolicitudesPorEstado(Long estadoId);
     byte[] generarPDF(Long id);
+    void enviarNotificacion(Long id);
 }
+

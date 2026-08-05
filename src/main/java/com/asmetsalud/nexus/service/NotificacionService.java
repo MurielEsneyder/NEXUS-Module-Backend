@@ -43,7 +43,7 @@ public class NotificacionService {
                 }
                 Map<String, String> file = new HashMap<>();
                 file.put("name", "Solicitud_" + datos.getNumeroSolicitud() + ".pdf");
-                file.put("type", "application/pdf");
+                file.put("type", "text/plain");
                 file.put("content", base64Data);
                 payload.put("files", Collections.singletonList(file));
             }

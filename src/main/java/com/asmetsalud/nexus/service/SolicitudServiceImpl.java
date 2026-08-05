@@ -35,6 +35,7 @@ public class SolicitudServiceImpl implements SolicitudService {
     private final TipoSolicitudRepository tipoSolicitudRepository;
     private final AuditoriaRepository auditoriaRepository;
     private final NotificacionService notificacionService;
+    private final PdfGeneratorService pdfGeneratorService;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final List<String> PRIORIDADES_VALIDAS = Arrays.asList("alta", "media", "baja");
@@ -78,24 +79,6 @@ public class SolicitudServiceImpl implements SolicitudService {
         }
 
         registrarAuditoria(savedSolicitud, null, estado, "Solicitud creada");
-
-        // ============================================================
-        // Envío de correo de prueba al crear la solicitud
-        // ============================================================
-        try {
-            CorreoSolicitudDTO correoDTO = new CorreoSolicitudDTO();
-            correoDTO.setSolicitudId(savedSolicitud.getId());
-            correoDTO.setNumeroSolicitud(savedSolicitud.getCodigo());
-            correoDTO.setCorreoDestinatario(CORREO_PRUEBA_RECEPTOR);
-            correoDTO.setNombreSolicitante(savedSolicitud.getEmpleadoNombre());
-            correoDTO.setModalidad(tipo.getNombre());
-            correoDTO.setPdfBase64(null);
-            notificacionService.enviarNotificacionConPdf(correoDTO);
-            log.info("📧 Correo de prueba enviado a: {}", CORREO_PRUEBA_RECEPTOR);
-        } catch (Exception e) {
-            log.warn("⚠️ No se pudo enviar el correo de prueba para la solicitud {}: {}",
-                    savedSolicitud.getCodigo(), e.getMessage());
-        }
 
         return convertirADTOConRequerimientos(savedSolicitud);
     }
@@ -248,7 +231,44 @@ public class SolicitudServiceImpl implements SolicitudService {
     @Override
     public byte[] generarPDF(Long id) {
         log.info("📄 Generando PDF para solicitud ID: {}", id);
-        return new byte[0];
+        try {
+            SolicitudResponseDTO dto = obtenerSolicitudPorId(id);
+            return pdfGeneratorService.generarPdfSolicitud(dto);
+        } catch (Exception e) {
+            log.error("❌ Error al generar PDF para solicitud ID: {}: {}", id, e.getMessage());
+            return new byte[0];
+        }
+    }
+
+    @Override
+    public void enviarNotificacion(Long id) {
+        log.info("📧 Enviando notificación para solicitud ID: {}", id);
+        Solicitud solicitud = solicitudRepository.findById(id)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Solicitud no encontrada con ID: " + id));
+
+        try {
+            byte[] pdfBytes = generarPDF(id);
+            String pdfBase64 = java.util.Base64.getEncoder().encodeToString(pdfBytes);
+
+            CorreoSolicitudDTO correoDTO = new CorreoSolicitudDTO();
+            correoDTO.setSolicitudId(solicitud.getId());
+            correoDTO.setNumeroSolicitud(solicitud.getCodigo());
+            
+            String destinatario = solicitud.getEmpleadoCorreo();
+            if (destinatario == null || destinatario.trim().isEmpty()) {
+                destinatario = CORREO_PRUEBA_RECEPTOR;
+            }
+            correoDTO.setCorreoDestinatario(destinatario);
+            correoDTO.setNombreSolicitante(solicitud.getEmpleadoNombre());
+            correoDTO.setModalidad(solicitud.getTipoSolicitud().getNombre());
+            correoDTO.setPdfBase64(pdfBase64);
+
+            notificacionService.enviarNotificacionConPdf(correoDTO);
+            log.info("📧 Correo con PDF enviado exitosamente a: {}", destinatario);
+        } catch (Exception e) {
+            log.error("❌ Error al enviar notificación con PDF: {}", e.getMessage());
+            throw new RuntimeException("No se pudo enviar la notificación: " + e.getMessage(), e);
+        }
     }
 
     // ============================================================
