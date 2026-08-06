@@ -31,6 +31,7 @@ public class SolicitudServiceImpl implements SolicitudService {
 
     private final SolicitudRepository solicitudRepository;
     private final RequerimientoRepository requerimientoRepository;
+    private final RequerimientoImagenRepository requerimientoImagenRepository;
     private final EstadoSolicitudRepository estadoSolicitudRepository;
     private final TipoSolicitudRepository tipoSolicitudRepository;
     private final AuditoriaRepository auditoriaRepository;
@@ -316,7 +317,21 @@ public class SolicitudServiceImpl implements SolicitudService {
                 requerimiento.setNumeroOrden(contadorNoFuncional);
                 requerimiento.setCodigo(String.format("RNF_%02d", contadorNoFuncional));
             }
-            requerimientoRepository.save(requerimiento);
+            Requerimiento savedReq = requerimientoRepository.save(requerimiento);
+
+            if (reqDTO.getImagenesUrls() != null && !reqDTO.getImagenesUrls().isEmpty()) {
+                for (ImagenDTO imgDto : reqDTO.getImagenesUrls()) {
+                    if (imgDto.getUrl() != null && !imgDto.getUrl().trim().isEmpty()) {
+                        RequerimientoImagen reqImg = new RequerimientoImagen();
+                        reqImg.setRequerimiento(savedReq);
+                        reqImg.setUrlImagen(imgDto.getUrl().trim());
+                        reqImg.setOrden(imgDto.getOrden() != null ? imgDto.getOrden() : 1);
+                        reqImg.setUsuarioRegistro(solicitud.getUsuarioRegistro() != null ? solicitud.getUsuarioRegistro() : "SYSTEM");
+                        requerimientoImagenRepository.save(reqImg);
+                    }
+                }
+                log.info("🖼️ Guardadas {} imágenes para el requerimiento {}", reqDTO.getImagenesUrls().size(), savedReq.getCodigo());
+            }
         }
         log.info("✅ Procesados {} requerimientos ({} funcionales, {} no funcionales)",
                 requerimientosDTO.size(), contadorFuncional, contadorNoFuncional);
@@ -394,6 +409,19 @@ public class SolicitudServiceImpl implements SolicitudService {
                 if (req.getEstado() != null) {
                     reqDTO.setEstadoNombre(req.getEstado().getNombre());
                 }
+
+                List<RequerimientoImagen> imagenesEntities = requerimientoImagenRepository.findByRequerimientoIdOrderByOrdenAsc(req.getId());
+                if (imagenesEntities != null && !imagenesEntities.isEmpty()) {
+                    List<ImagenDTO> imagenesDTO = imagenesEntities.stream().map(imgEnt -> {
+                        ImagenDTO imgDto = new ImagenDTO();
+                        imgDto.setId(imgEnt.getId());
+                        imgDto.setUrl(imgEnt.getUrlImagen());
+                        imgDto.setOrden(imgEnt.getOrden());
+                        return imgDto;
+                    }).collect(Collectors.toList());
+                    reqDTO.setImagenesUrls(imagenesDTO);
+                }
+
                 requerimientosDTO.add(reqDTO);
                 if (req.getTipoRequerimiento() == 0) funcionales++;
                 else noFuncionales++;

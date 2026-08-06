@@ -3,6 +3,7 @@ package com.asmetsalud.nexus.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -17,4 +18,5 @@ public class RequerimientoResponseDTO {
     private String cargoImpactado;
     private Integer numeroOrden;
     private String estadoNombre;
+    private List<ImagenDTO> imagenesUrls;
 }

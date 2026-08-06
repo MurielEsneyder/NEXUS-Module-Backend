@@ -298,6 +298,42 @@ public class PdfGeneratorService {
                 detCell.setBorderWidth(0.5f);
                 detCell.setPadding(4);
                 table.addCell(detCell);
+
+                // Agregar fila de imágenes si el requerimiento tiene imágenes
+                if (req.getImagenesUrls() != null && !req.getImagenesUrls().isEmpty()) {
+                    PdfPCell imgContainerCell = new PdfPCell();
+                    imgContainerCell.setColspan(3);
+                    imgContainerCell.setBorderColor(COLOR_BORDER);
+                    imgContainerCell.setBorderWidth(0.5f);
+                    imgContainerCell.setPadding(4);
+                    
+                    Paragraph titleImg = new Paragraph("Imágenes Adjuntas:", fontSmallBold());
+                    titleImg.setSpacingAfter(4);
+                    imgContainerCell.addElement(titleImg);
+                    
+                    for (com.asmetsalud.nexus.dto.ImagenDTO imgDto : req.getImagenesUrls()) {
+                        try {
+                            String urlStr = imgDto.getUrl();
+                            Image img;
+                            if (urlStr != null && urlStr.startsWith("data:image")) {
+                                String base64Data = urlStr.substring(urlStr.indexOf(",") + 1);
+                                byte[] decodedBytes = java.util.Base64.getDecoder().decode(base64Data);
+                                img = Image.getInstance(decodedBytes);
+                            } else {
+                                img = Image.getInstance(new java.net.URL(urlStr));
+                            }
+                            img.scaleToFit(200, 200);
+                            img.setSpacingAfter(5);
+                            imgContainerCell.addElement(img);
+                        } catch (Exception e) {
+                            String urlStr = imgDto.getUrl();
+                            String displayUrl = (urlStr != null && urlStr.length() > 80) ? urlStr.substring(0, 80) + "..." : urlStr;
+                            Paragraph urlLink = new Paragraph("[Imagen " + imgDto.getOrden() + "] " + displayUrl, fontSmall());
+                            imgContainerCell.addElement(urlLink);
+                        }
+                    }
+                    table.addCell(imgContainerCell);
+                }
             }
         }
 
