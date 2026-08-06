@@ -74,8 +74,7 @@ public class PdfGeneratorService {
             addSectionTable(document, "INFORMACIÓN DE LA SOLICITUD",
                     new String[][] {
                             { "Solicitud del Proceso: " + proceso,  "Tipo de Solicitud: " + tipo },
-                            { "Prioridad: " + prioridad,            "Estado: " + estado },
-                            { "Coordinador: No asignado",           "Funcional Asignado: No asignado" }
+                            { "Prioridad: " + prioridad,            "Estado: " + estado }
                     });
 
             // ── 4. IMPACTO DEL REQUERIMIENTO ─────────────────────────────────
