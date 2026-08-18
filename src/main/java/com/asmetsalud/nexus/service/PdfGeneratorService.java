@@ -114,7 +114,10 @@ public class PdfGeneratorService {
                     "• Evitar uso de datos reales de carácter personal en pruebas.";
             addSectionTextBlock(document, "REQUISITOS DE SEGURIDAD", seguridad, fontSmall());
 
-            // ── 9. PIE DE PÁGINA ─────────────────────────────────────────────
+            // ── 9. IMÁGENES ADJUNTAS ──────────────────────────────────────────
+            addImagenesSection(document, solicitud);
+
+            // ── 10. PIE DE PÁGINA ─────────────────────────────────────────────
             document.add(new Paragraph(" "));
             Paragraph footer = new Paragraph(
                     "Documento generado automáticamente por el sistema HyL Sparta - ASMET SALUD EPS",
@@ -298,46 +301,95 @@ public class PdfGeneratorService {
                 detCell.setBorderWidth(0.5f);
                 detCell.setPadding(4);
                 table.addCell(detCell);
-
-                // Agregar fila de imágenes si el requerimiento tiene imágenes
-                if (req.getImagenesUrls() != null && !req.getImagenesUrls().isEmpty()) {
-                    PdfPCell imgContainerCell = new PdfPCell();
-                    imgContainerCell.setColspan(3);
-                    imgContainerCell.setBorderColor(COLOR_BORDER);
-                    imgContainerCell.setBorderWidth(0.5f);
-                    imgContainerCell.setPadding(4);
-                    
-                    Paragraph titleImg = new Paragraph("Imágenes Adjuntas:", fontSmallBold());
-                    titleImg.setSpacingAfter(4);
-                    imgContainerCell.addElement(titleImg);
-                    
-                    for (com.asmetsalud.nexus.dto.ImagenDTO imgDto : req.getImagenesUrls()) {
-                        try {
-                            String urlStr = imgDto.getUrl();
-                            Image img;
-                            if (urlStr != null && urlStr.startsWith("data:image")) {
-                                String base64Data = urlStr.substring(urlStr.indexOf(",") + 1);
-                                byte[] decodedBytes = java.util.Base64.getDecoder().decode(base64Data);
-                                img = Image.getInstance(decodedBytes);
-                            } else {
-                                img = Image.getInstance(new java.net.URL(urlStr));
-                            }
-                            img.scaleToFit(200, 200);
-                            img.setSpacingAfter(5);
-                            imgContainerCell.addElement(img);
-                        } catch (Exception e) {
-                            String urlStr = imgDto.getUrl();
-                            String displayUrl = (urlStr != null && urlStr.length() > 80) ? urlStr.substring(0, 80) + "..." : urlStr;
-                            Paragraph urlLink = new Paragraph("[Imagen " + imgDto.getOrden() + "] " + displayUrl, fontSmall());
-                            imgContainerCell.addElement(urlLink);
-                        }
-                    }
-                    table.addCell(imgContainerCell);
-                }
             }
         }
 
         document.add(table);
+    }
+
+    /**
+     * Renderiza la sección de IMÁGENES ADJUNTAS de forma independiente fuera de tablas rígidas,
+     * permitiendo que OpenPDF gestione los saltos de página sin cortar imágenes y escalándolas
+     * proporcionalmente hasta 500x520 pt (~175mm ancho).
+     */
+    private void addImagenesSection(Document document, SolicitudResponseDTO solicitud)
+            throws DocumentException {
+
+        if (solicitud == null || solicitud.getRequerimientos() == null) {
+            return;
+        }
+
+        boolean hasHeader = false;
+
+        for (RequerimientoResponseDTO req : solicitud.getRequerimientos()) {
+            if (req.getImagenesUrls() != null && !req.getImagenesUrls().isEmpty()) {
+                if (!hasHeader) {
+                    PdfPTable sectionHeader = new PdfPTable(1);
+                    sectionHeader.setWidthPercentage(100);
+                    sectionHeader.setSpacingBefore(10);
+                    sectionHeader.setSpacingAfter(8);
+
+                    PdfPCell headCell = new PdfPCell(new Phrase("IMÁGENES ADJUNTAS", fontSection()));
+                    headCell.setBackgroundColor(COLOR_HEADER_GRAY);
+                    headCell.setBorder(Rectangle.NO_BORDER);
+                    headCell.setPadding(6);
+                    sectionHeader.addCell(headCell);
+
+                    document.add(sectionHeader);
+                    hasHeader = true;
+                }
+
+                int idx = 1;
+                int totalImgs = req.getImagenesUrls().size();
+
+                for (com.asmetsalud.nexus.dto.ImagenDTO imgDto : req.getImagenesUrls()) {
+                    // Sub-cabecera con información del requerimiento e imagen
+                    PdfPTable imgHeader = new PdfPTable(1);
+                    imgHeader.setWidthPercentage(100);
+                    imgHeader.setSpacingBefore(8);
+                    imgHeader.setSpacingAfter(4);
+
+                    String bannerText = "Requerimiento " + val(req.getCodigo()) + " - Imagen " + idx + " de " + totalImgs;
+                    Font bannerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, COLOR_TEAL);
+                    PdfPCell bannerCell = new PdfPCell(new Phrase(bannerText, bannerFont));
+                    bannerCell.setBackgroundColor(new Color(240, 244, 248));
+                    bannerCell.setBorder(Rectangle.NO_BORDER);
+                    bannerCell.setPadding(5);
+                    imgHeader.addCell(bannerCell);
+
+                    document.add(imgHeader);
+
+                    try {
+                        String urlStr = imgDto.getUrl();
+                        Image img = null;
+                        if (urlStr != null && urlStr.startsWith("data:image")) {
+                            String base64Data = urlStr.substring(urlStr.indexOf(",") + 1).replaceAll("\\s+", "");
+                            byte[] decodedBytes = java.util.Base64.getMimeDecoder().decode(base64Data);
+                            img = Image.getInstance(decodedBytes);
+                        } else if (urlStr != null && (urlStr.startsWith("http://") || urlStr.startsWith("https://"))) {
+                            img = Image.getInstance(new java.net.URL(urlStr));
+                        }
+
+                        if (img != null) {
+                            // Escalar al 100% del ancho disponible en A4 (535 pt) manteniendo proporción
+                            img.scaleToFit(535f, 680f);
+                            img.setAlignment(Element.ALIGN_CENTER);
+                            img.setSpacingBefore(6f);
+                            img.setSpacingAfter(15f);
+                            document.add(img);
+                        }
+                    } catch (Exception e) {
+                        String urlStr = imgDto.getUrl();
+                        if (urlStr != null && (urlStr.startsWith("http://") || urlStr.startsWith("https://"))) {
+                            Paragraph urlLink = new Paragraph("[Imagen " + imgDto.getOrden() + ": Ver en navegador]", fontSmall());
+                            urlLink.setSpacingAfter(10f);
+                            document.add(urlLink);
+                        }
+                    }
+                    idx++;
+                }
+            }
+        }
     }
 
     /** Devuelve el valor o "-" si es nulo/vacío. */
