@@ -248,6 +248,7 @@ public class SolicitudServiceImpl implements SolicitudService {
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Solicitud no encontrada con ID: " + id));
 
         try {
+            SolicitudResponseDTO dto = obtenerSolicitudPorId(id);
             byte[] pdfBytes = generarPDF(id);
             String pdfBase64 = java.util.Base64.getEncoder().encodeToString(pdfBytes);
 
@@ -261,13 +262,14 @@ public class SolicitudServiceImpl implements SolicitudService {
             }
             correoDTO.setCorreoDestinatario(destinatario);
             correoDTO.setNombreSolicitante(solicitud.getEmpleadoNombre());
-            correoDTO.setModalidad(solicitud.getTipoSolicitud().getNombre());
+            correoDTO.setModalidad(solicitud.getTipoSolicitud() != null ? solicitud.getTipoSolicitud().getNombre() : "Desarrollo");
             correoDTO.setPdfBase64(pdfBase64);
+            correoDTO.setSolicitudCompleta(dto);
 
             notificacionService.enviarNotificacionConPdf(correoDTO);
-            log.info("📧 Correo con PDF enviado exitosamente a: {}", destinatario);
+            log.info("📧 Correo con PDF e imágenes enviado exitosamente a: {}", destinatario);
         } catch (Exception e) {
-            log.error("❌ Error al enviar notificación con PDF: {}", e.getMessage());
+            log.error("❌ Error al enviar notificación con PDF e imágenes: {}", e.getMessage());
             throw new RuntimeException("No se pudo enviar la notificación: " + e.getMessage(), e);
         }
     }

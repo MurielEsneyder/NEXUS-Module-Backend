@@ -14,4 +14,6 @@ public class CorreoSolicitudDTO {
     private String nombreSolicitante;
     private String modalidad;
     private String pdfBase64;
+    private SolicitudResponseDTO solicitudCompleta;
 }
+
