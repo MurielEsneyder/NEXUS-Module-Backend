@@ -32,7 +32,7 @@ public class NotificacionService {
 
         try {
             Map<String, Object> payload = new HashMap<>();
-            payload.put("fromAdd", "notificacionestalentohumano@asmetsalud.com");
+            payload.put("fromAdd", "solicitudesdesarrollo@asmetsalud.com");
             payload.put("from", "Sistema Nexus");
             payload.put("to", Collections.singletonList(datos.getCorreoDestinatario()));
             payload.put("subject", "Solicitud de Requerimiento de Desarrollo - " + datos.getNumeroSolicitud());
